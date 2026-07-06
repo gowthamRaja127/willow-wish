@@ -9,6 +9,7 @@ import { CookieService } from '../../core/services/cookie.service';
 import { ItemCardComponent } from '../wishlist/item-card/item-card.component';
 import { AddItemModalComponent } from '../wishlist/add-item-modal/add-item-modal.component';
 import { PriceHistoryModalComponent } from '../wishlist/price-history-modal/price-history-modal.component';
+import { ShareService } from '../../core/services/share.service';
 import {
   WishlistItem,
   SortBy,
@@ -176,6 +177,27 @@ import {
               />
             </svg>
             <span class="hidden lg:block text-base font-bold">Add Item</span>
+          </button>
+
+          <button
+            (click)="onShareWishlist()"
+            [disabled]="sharingWishlist()"
+            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
+              />
+            </svg>
+            <span class="hidden lg:block text-base">{{ sharingWishlist() ? 'Copying...' : 'Share Wishlist' }}</span>
           </button>
         </nav>
 
@@ -622,6 +644,7 @@ export class DashboardComponent implements OnInit {
   showAddModal = signal(false);
   editingItem = signal<WishlistItem | null>(null);
   historyItemId = signal<string | null>(null);
+  sharingWishlist = signal(false);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
   searchQuery = '';
@@ -634,6 +657,7 @@ export class DashboardComponent implements OnInit {
     private sb: SupabaseService,
     private router: Router,
     private cookieSvc: CookieService,
+    private shareSvc: ShareService,
   ) {}
 
   get filteredItems() {
@@ -732,6 +756,19 @@ export class DashboardComponent implements OnInit {
 
   onTagClick(tag: string) {
     this.wishlistSvc.toggleTag(tag);
+  }
+
+  async onShareWishlist() {
+    this.sharingWishlist.set(true);
+    const { token, error } = await this.shareSvc.getWishlistShareToken();
+    this.sharingWishlist.set(false);
+    if (error || !token) {
+      this.toastSvc.error('Could not create share link');
+      return;
+    }
+    const url = `${window.location.origin}/shared/list/${token}`;
+    await navigator.clipboard.writeText(url);
+    this.toastSvc.success('Wishlist share link copied to clipboard!');
   }
 
   onDeleted(_id: string) {}

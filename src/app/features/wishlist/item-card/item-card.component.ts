@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { WishlistItem } from '../../../core/models/wishlist.model';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ShareService } from '../../../core/services/share.service';
 
 @Component({
   selector: 'app-item-card',
@@ -51,6 +52,12 @@ import { ToastService } from '../../../core/services/toast.service';
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6"/>
                   </svg>
                   Price History
+                </button>
+                <button (click)="onShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"/>
+                  </svg>
+                  {{ sharing() ? 'Copying link...' : 'Share' }}
                 </button>
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
@@ -339,6 +346,12 @@ import { ToastService } from '../../../core/services/toast.service';
                   </svg>
                   Price History
                 </button>
+                <button (click)="onShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"/>
+                  </svg>
+                  {{ sharing() ? 'Copying link...' : 'Share' }}
+                </button>
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -375,7 +388,13 @@ export class ItemCardComponent {
   showActionsMenu = signal(false);
   confirmingDelete = signal(false);
 
-  constructor(private wishlistSvc: WishlistService, private toast: ToastService) {}
+  sharing = signal(false);
+
+  constructor(
+    private wishlistSvc: WishlistService,
+    private toast: ToastService,
+    private shareSvc: ShareService,
+  ) {}
 
   get priceDrop(): number { return this.wishlistSvc.getPriceDrop(this.item); }
   get dropPercent(): number { return this.wishlistSvc.getPriceDropPercent(this.item); }
@@ -432,6 +451,21 @@ export class ItemCardComponent {
   onTagClick(e: MouseEvent, tag: string) {
     e.stopPropagation();
     this.tagClick.emit(tag);
+  }
+
+  async onShare(e: MouseEvent) {
+    e.stopPropagation();
+    this.sharing.set(true);
+    const { token, error } = await this.shareSvc.getItemShareToken(this.item);
+    this.sharing.set(false);
+    this.showActionsMenu.set(false);
+    if (error || !token) {
+      this.toast.error('Could not create share link');
+      return;
+    }
+    const url = `${window.location.origin}/shared/item/${token}`;
+    await navigator.clipboard.writeText(url);
+    this.toast.success('Share link copied to clipboard!');
   }
 
   async onDelete(e: MouseEvent) {
