@@ -10,12 +10,7 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div class="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center p-4">
-      <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-primary/5 blur-3xl"></div>
-        <div class="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-primary/8 blur-3xl"></div>
-      </div>
-
+    <div class="min-h-screen bg-background flex items-center justify-center p-4">
       <div class="w-full max-w-md relative">
         <div class="text-center mb-8 animate-fade-in">
           <div class="inline-flex items-center justify-center mb-4">
@@ -26,7 +21,7 @@ import { ToastService } from '../../../core/services/toast.service';
         </div>
 
         @if (emailSent()) {
-          <div class="card p-8 animate-slide-up text-center shadow-card-hover">
+          <div class="card p-8 animate-slide-up text-center">
             <div class="w-16 h-16 rounded-full bg-pricedrop-bg flex items-center justify-center mx-auto mb-4">
               <svg class="w-8 h-8 text-pricedrop" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
@@ -37,7 +32,7 @@ import { ToastService } from '../../../core/services/toast.service';
             <a routerLink="/auth/login" class="btn-primary btn-md mt-6 inline-flex">Go to Sign in</a>
           </div>
         } @else {
-          <div class="card p-8 animate-slide-up shadow-card-hover">
+          <div class="card p-8 animate-slide-up">
             @if (errorMessage()) {
               <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
                 <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
