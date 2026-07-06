@@ -330,14 +330,25 @@ export class WishlistService {
 
   async updateItem(id: string, payload: UpdateItemPayload): Promise<{ error: any }> {
     try {
+      // Changing the target price re-opens the "target met" check — otherwise
+      // an item that already triggered one target-met alert can never notify
+      // again, even after the target is lowered and met a second time.
+      const finalPayload: UpdateItemPayload & { is_notified?: boolean } = { ...payload };
+      if (payload.target_price !== undefined) {
+        const current = this._items().find(i => i.id === id);
+        if (current && current.target_price !== payload.target_price) {
+          finalPayload.is_notified = false;
+        }
+      }
+
       const { error } = await this.sb.client
         .from('items')
-        .update(payload)
+        .update(finalPayload)
         .eq('id', id);
 
       if (error) throw error;
       this._items.update(items =>
-        items.map(item => item.id === id ? { ...item, ...payload } : item)
+        items.map(item => item.id === id ? { ...item, ...finalPayload } : item)
       );
       return { error: null };
     } catch (error) {

@@ -189,7 +189,9 @@ export async function sendNotification(
           'Authorization': `Bearer ${resendKey}`,
         },
         body: JSON.stringify({
-          from: 'WillowWish <alerts@willowwish.dev>',
+          // Falls back to Resend's default sender until willowwish.dev is
+          // verified at resend.com/domains — switch back once it is.
+          from: 'WillowWish <onboarding@resend.dev>',
           to: userEmail,
           subject,
           html,
@@ -273,7 +275,10 @@ export async function handleRequest(req: any): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { url, itemId, userId, mode } = await req.json()
+    const {
+      url, itemId, userId, mode,
+      title: clientTitle, price: clientPrice, image: clientImage,
+    } = await req.json()
 
     if (!url) throw new Error('url is required')
 
@@ -284,82 +289,33 @@ export async function handleRequest(req: any): Promise<Response> {
       )
     }
 
-    // ── Fetch product page ─────────────────────────────────────────────
-    // redirect: 'manual' on every hop so a redirect can't be used to smuggle
-    // the request to a disallowed host (SSRF via open redirect) — each hop's
-    // target is re-validated against the same allowlist before being fetched.
-    const fetchHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Upgrade-Insecure-Requests': '1',
-    }
+    let scraped: { title: string | null; image: string | null; desc: string | null; price: number }
 
-    let currentUrl = url
-    let response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+    if (mode === 'client_update') {
+      // The browser extension already extracted this from a live tab — used
+      // for platforms (Nykaa, Meesho, Instamart, ...) that block our own
+      // server-side fetch outright. Skip the fetch+extract step entirely
+      // and apply the same update/notify logic to the client-supplied data.
+      if (!itemId) throw new Error('itemId is required for client_update')
+      scraped = {
+        title: clientTitle ?? null,
+        image: clientImage ?? null,
+        desc: null,
+        price: typeof clientPrice === 'number' && clientPrice > 0 ? clientPrice : 0,
+      }
+    } else {
+      scraped = await fetchAndExtract(url)
 
-    const MAX_REDIRECTS = 5
-    let redirectCount = 0
-    while (response.status >= 300 && response.status < 400) {
-      if (++redirectCount > MAX_REDIRECTS) {
+      // ── mode: "preview" — just return scraped data, don't touch DB ─────
+      if (mode === 'preview') {
         return new Response(
-          JSON.stringify({ error: 'Too many redirects' }),
-          { status: 400, headers: corsHeaders }
+          JSON.stringify({ success: true, ...scraped }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      const location = response.headers.get('location')
-      const redirectTarget = location ? new URL(location, currentUrl).href : null
-      if (!redirectTarget || !isAllowedProductUrl(redirectTarget)) {
-        return new Response(
-          JSON.stringify({ error: 'URL host is not supported' }),
-          { status: 400, headers: corsHeaders }
-        )
-      }
-      currentUrl = redirectTarget
-      response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
     }
 
-    const html = await response.text()
-    const doc = new DOMParser().parseFromString(html, 'text/html')
-    if (!doc) throw new Error('HTML parsing failure')
-
-    const title  = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
-      || extractJsonLdProduct(doc)?.name
-      || doc.querySelector('title')?.innerText || null
-    let image  = extractImage(doc)
-    
-    // Resolve relative image URLs to absolute URLs
-    if (image && !image.startsWith('http://') && !image.startsWith('https://')) {
-      try {
-        const parsedUrl = new URL(url)
-        image = new URL(image, parsedUrl.origin).href
-      } catch (e) {
-        console.error('Failed to resolve relative image URL:', e)
-      }
-    }
-
-    const desc   = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || null
-    const price  = extractPrice(doc)
-
-    const scraped = { title, image, desc, price }
-
-    // ── mode: "preview" — just return scraped data, don't touch DB ─────
-    if (mode === 'preview') {
-      return new Response(
-        JSON.stringify({ success: true, ...scraped }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // ── mode: "update" or "enrich" — database write & compare ─
+    // ── mode: "update"/"enrich"/"client_update" — database write & compare ─
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -389,65 +345,13 @@ export async function handleRequest(req: any): Promise<Response> {
     }
 
     if (itemId) {
-      // 1. Fetch current stored fields to compare
-      const { data: existing } = await supabase
-        .from('items')
-        .select('user_id, product_name, initial_price, current_price, target_price, is_notified')
-        .eq('id', itemId)
-        .single()
-
-      if (!existing || (!isServiceCaller && existing.user_id !== callerId)) {
+      const updateError = await applyItemUpdate(supabase, itemId, callerId, isServiceCaller, scraped)
+      if (updateError) {
         return new Response(
-          JSON.stringify({ error: 'Forbidden' }),
-          { status: 403, headers: corsHeaders }
+          JSON.stringify({ error: updateError.error }),
+          { status: updateError.status, headers: corsHeaders }
         )
       }
-
-      const patch: Record<string, any> = { last_scraped_at: new Date() }
-      if (image) {
-        const storedImageUrl = await uploadProductImage(supabase, itemId, image)
-        patch.image_url = storedImageUrl ?? image
-      }
-      if (title && !existing?.product_name)  patch.product_name = title
-      if (desc && !existing?.description)   patch.description  = desc
-
-      if (price > 0) {
-        const isNewPricePoint = existing?.current_price == null || price !== existing.current_price
-        patch.current_price = price
-
-        // If initial price is not set, set it now
-        if (!existing?.initial_price) {
-          patch.initial_price = price;
-        }
-
-        if (isNewPricePoint) {
-          await supabase.from('price_history').insert({ item_id: itemId, price })
-        }
-
-        // Compare price change
-        const oldPrice = existing?.current_price || existing?.initial_price || price;
-        const itemName = existing?.product_name || title || 'Wishlist Item';
-        
-        if (existing?.user_id) {
-          // Get user details for notification
-          const { data: userData } = await supabase.auth.admin.getUserById(existing.user_id)
-          const userEmail = userData?.user?.email || "";
-          const userWhatsapp = userData?.user?.user_metadata?.whatsapp_number || null;
-
-          // Alert 1: Price drop
-          if (price < oldPrice) {
-            await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, false);
-          }
-
-          // Alert 2: Target price reached
-          if (existing.target_price && price <= existing.target_price && !existing.is_notified) {
-            patch.is_notified = true;
-            await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, true);
-          }
-        }
-      }
-      
-      await supabase.from('items').update(patch).eq('id', itemId)
     } else if (userId) {
       if (userId !== callerId) {
         return new Response(
@@ -459,11 +363,11 @@ export async function handleRequest(req: any): Promise<Response> {
       await supabase.from('items').insert({
         user_id: userId,
         product_url: url,
-        product_name: title,
-        description: desc,
-        image_url: image,
-        initial_price: price > 0 ? price : null,
-        current_price: price > 0 ? price : null,
+        product_name: scraped.title,
+        description: scraped.desc,
+        image_url: scraped.image,
+        initial_price: scraped.price > 0 ? scraped.price : null,
+        current_price: scraped.price > 0 ? scraped.price : null,
       })
     }
 
@@ -477,6 +381,157 @@ export async function handleRequest(req: any): Promise<Response> {
       { status: 400, headers: corsHeaders }
     )
   }
+}
+
+/**
+ * Fetch a product page and extract title/image/description/price. Used for
+ * every mode except "client_update", where the caller already has the data.
+ */
+export async function fetchAndExtract(url: string): Promise<{ title: string | null; image: string | null; desc: string | null; price: number }> {
+  // redirect: 'manual' on every hop so a redirect can't be used to smuggle
+  // the request to a disallowed host (SSRF via open redirect) — each hop's
+  // target is re-validated against the same allowlist before being fetched.
+  const fetchHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+  }
+
+  let currentUrl = url
+  let response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+
+  const MAX_REDIRECTS = 5
+  let redirectCount = 0
+  while (response.status >= 300 && response.status < 400) {
+    if (++redirectCount > MAX_REDIRECTS) {
+      throw new Error('Too many redirects')
+    }
+    const location = response.headers.get('location')
+    const redirectTarget = location ? new URL(location, currentUrl).href : null
+    if (!redirectTarget || !isAllowedProductUrl(redirectTarget)) {
+      throw new Error('URL host is not supported')
+    }
+    currentUrl = redirectTarget
+    response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+  }
+
+  const html = await response.text()
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  if (!doc) throw new Error('HTML parsing failure')
+
+  const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
+    || extractJsonLdProduct(doc)?.name
+    || doc.querySelector('title')?.innerText || null
+  let image = extractImage(doc)
+
+  // Resolve relative image URLs to absolute URLs
+  if (image && !image.startsWith('http://') && !image.startsWith('https://')) {
+    try {
+      const parsedUrl = new URL(url)
+      image = new URL(image, parsedUrl.origin).href
+    } catch (e) {
+      console.error('Failed to resolve relative image URL:', e)
+    }
+  }
+
+  const desc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || null
+  const price = extractPrice(doc)
+
+  // A blocked/challenge/fallback page (e.g. a bot-detection interstitial or a
+  // generic "not found" shell) rarely has a real price or image, but its
+  // <title> is still just plain text — so a "successful" scrape with no
+  // price and no image is a strong signal the title is garbage too. Treat
+  // the whole scrape as empty rather than mislabel the item.
+  if (price <= 0 && !image) {
+    return { title: null, image: null, desc: null, price: 0 }
+  }
+
+  return { title, image, desc, price }
+}
+
+/**
+ * Apply already-resolved scraped data to an item: update patch fields,
+ * record a price_history point on change, and fire price-drop/target-met
+ * notifications. Shared by the server-side fetch path and the extension's
+ * client_update path so the notification logic isn't duplicated.
+ */
+export async function applyItemUpdate(
+  supabase: any,
+  itemId: string,
+  callerId: string | null,
+  isServiceCaller: boolean,
+  scraped: { title: string | null; image: string | null; desc: string | null; price: number }
+): Promise<{ error: string; status: number } | null> {
+  const { title, image, desc, price } = scraped
+
+  const { data: existing } = await supabase
+    .from('items')
+    .select('user_id, product_name, initial_price, current_price, target_price, is_notified, is_purchased')
+    .eq('id', itemId)
+    .single()
+
+  if (!existing || (!isServiceCaller && existing.user_id !== callerId)) {
+    return { error: 'Forbidden', status: 403 }
+  }
+
+  const patch: Record<string, any> = { last_scraped_at: new Date() }
+  if (image) {
+    const storedImageUrl = await uploadProductImage(supabase, itemId, image)
+    patch.image_url = storedImageUrl ?? image
+  }
+  if (title && !existing?.product_name) patch.product_name = title
+  if (desc && !existing?.description) patch.description = desc
+
+  // Skip price tracking/notifications entirely for items already marked
+  // purchased — the user doesn't need price-drop alerts for something
+  // they've already bought.
+  if (price > 0 && !existing?.is_purchased) {
+    const isNewPricePoint = existing?.current_price == null || price !== existing.current_price
+    patch.current_price = price
+
+    // If initial price is not set, set it now
+    if (!existing?.initial_price) {
+      patch.initial_price = price
+    }
+
+    if (isNewPricePoint) {
+      await supabase.from('price_history').insert({ item_id: itemId, price })
+    }
+
+    // Compare price change
+    const oldPrice = existing?.current_price || existing?.initial_price || price
+    const itemName = existing?.product_name || title || 'Wishlist Item'
+
+    if (existing?.user_id) {
+      // Get user details for notification
+      const { data: userData } = await supabase.auth.admin.getUserById(existing.user_id)
+      const userEmail = userData?.user?.email || ""
+      const userWhatsapp = userData?.user?.user_metadata?.whatsapp_number || null
+
+      // Alert 1: Price drop
+      if (price < oldPrice) {
+        await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, false)
+      }
+
+      // Alert 2: Target price reached
+      if (existing.target_price && price <= existing.target_price && !existing.is_notified) {
+        patch.is_notified = true
+        await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, true)
+      }
+    }
+  }
+
+  await supabase.from('items').update(patch).eq('id', itemId)
+  return null
 }
 
 // Only start the listener when this file is run directly (Supabase's
