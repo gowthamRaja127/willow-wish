@@ -39,7 +39,7 @@ import { ToastService } from '../../../core/services/toast.service';
             </button>
 
             @if (showActionsMenu()) {
-              <div class="absolute right-0 mt-1 w-36 bg-card/90 backdrop-blur border border-border rounded-lg shadow-xl py-1 z-20 text-sm">
+              <div class="absolute right-0 mt-1 w-36 bg-card border border-border rounded-lg shadow-card-hover py-1 z-20 text-sm">
                 <button (click)="onEdit($event)" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
                   <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
@@ -309,7 +309,7 @@ import { ToastService } from '../../../core/services/toast.service';
             </button>
 
             @if (showActionsMenu()) {
-              <div class="absolute right-0 mt-1 w-36 bg-card/90 backdrop-blur border border-border rounded-lg shadow-xl py-1 z-20 text-sm">
+              <div class="absolute right-0 mt-1 w-36 bg-card border border-border rounded-lg shadow-card-hover py-1 z-20 text-sm">
                 <!-- Mobile fallback shortcuts inside 3-dot -->
                 <a [href]="item.product_url" target="_blank" rel="noopener noreferrer" class="flex xs:hidden items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
                   <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
