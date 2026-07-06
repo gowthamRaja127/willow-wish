@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ShareService, SharedItem } from '../../../core/services/share.service';
+import { CookieService } from '../../../core/services/cookie.service';
 
 @Component({
   selector: 'app-shared-wishlist',
@@ -45,9 +46,17 @@ export class SharedWishlistComponent implements OnInit {
   loading = signal(true);
   items = signal<SharedItem[]>([]);
 
-  constructor(private route: ActivatedRoute, private shareSvc: ShareService, private router: Router) {}
+  constructor(
+    private route: ActivatedRoute,
+    private shareSvc: ShareService,
+    private router: Router,
+    private cookieSvc: CookieService,
+  ) {}
 
   async ngOnInit() {
+    const dark = this.cookieSvc.get('ww-dark') === 'true';
+    document.documentElement.classList.toggle('dark', dark);
+
     const token = this.route.snapshot.paramMap.get('token');
     if (token) {
       this.items.set(await this.shareSvc.fetchSharedWishlist(token));

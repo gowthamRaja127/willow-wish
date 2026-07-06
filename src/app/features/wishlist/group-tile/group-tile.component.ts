@@ -36,35 +36,35 @@ import { ItemCardComponent } from '../item-card/item-card.component';
         </div>
       </div>
     } @else {
-      <div class="bg-card border border-primary/30 rounded-xl overflow-hidden flex flex-col col-span-2 row-span-2">
-        <div class="flex items-center justify-between p-3 border-b border-border/40">
-          <h3 class="font-semibold text-sm text-foreground">{{ group.name }}</h3>
-          <button (click)="expanded.set(false)" class="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
+      <div class="col-span-full flex items-center justify-between p-2 -mt-1 mb-1 bg-primary/5 border border-primary/20 rounded-lg">
+        <h3 class="font-semibold text-sm text-foreground flex items-center gap-2">
+          {{ group.name }}
+          <span class="text-xs text-muted-foreground font-normal">{{ items.length }} item{{ items.length === 1 ? '' : 's' }}</span>
+        </h3>
+        <button (click)="expanded.set(false)" class="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      @for (item of items; track item.id) {
+        <div class="flex flex-col gap-1 cursor-pointer">
+          <app-item-card
+            [item]="item"
+            [viewMode]="viewMode"
+            (edit)="edit.emit($event)"
+            (deleted)="deleted.emit($event)"
+            (viewHistory)="viewHistory.emit($event)"
+            (tagClick)="tagClick.emit($event)"
+          />
+          <button (click)="removeFromGroup.emit(item.id)" class="text-xs text-destructive hover:underline self-start px-1 sm:hidden">
+            Remove from group
           </button>
         </div>
-        <div class="p-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
-          @for (item of items; track item.id) {
-            <div class="flex flex-col gap-1">
-              <app-item-card
-                [item]="item"
-                [viewMode]="viewMode"
-                (edit)="edit.emit($event)"
-                (deleted)="deleted.emit($event)"
-                (viewHistory)="viewHistory.emit($event)"
-                (tagClick)="tagClick.emit($event)"
-              />
-              <button (click)="removeFromGroup.emit(item.id)" class="text-xs text-destructive hover:underline self-start px-1">
-                Remove from group
-              </button>
-            </div>
-          }
-        </div>
-      </div>
+      }
     }
-  `
+  `,
+  styles: [':host { display: contents; }'],
 })
 export class GroupTileComponent {
   @Input({ required: true }) group!: ItemGroup;
@@ -85,6 +85,7 @@ export class GroupTileComponent {
 
   onDrop(e: DragEvent): void {
     e.preventDefault();
+    e.stopPropagation();
     const draggedId = e.dataTransfer?.getData('text/plain');
     if (draggedId) this.droppedOnGroup.emit(draggedId);
   }

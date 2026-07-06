@@ -126,6 +126,16 @@
     @apply flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* Native <select> option list — Chromium respects these colors in the
+     popup; Firefox/Safari fall back to their own native highlight. */
+  select.input option {
+    @apply bg-card text-foreground;
+  }
+  select.input option:checked,
+  select.input option:hover {
+    @apply bg-primary/20 text-primary;
+  }
+
   /* Cards */
   .card {
     @apply rounded-xl border bg-card text-card-foreground;
@@ -182,7 +192,8 @@
   }
 
   .modal-content {
-    @apply card p-6 w-full max-w-md mx-4 animate-slide-up;
+    @apply card p-6 w-full max-w-md mx-4 animate-slide-up overflow-y-auto;
+    max-height: 75vh;
   }
 
   /* Notification toast */

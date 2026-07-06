@@ -223,7 +223,7 @@ import {
                 />
               </svg>
               <span class="hidden lg:block text-base text-left">{{
-                sharingWishlist() ? 'Copying...' : 'Share Wishlist'
+                sharingWishlist() ? 'Copying...' : 'Share'
               }}</span>
             </button>
             <button
@@ -371,13 +371,22 @@ import {
           <div class="flex-1 flex flex-col gap-3">
             <div class="flex items-center gap-4">
               <h1 class="text-xl sm:text-2xl font-semibold">
-                {{ userEmail() }}
+                {{ userDisplayName() }}
               </h1>
               <button
                 (click)="toggleDark()"
-                class="btn-secondary btn-sm rounded-lg hidden sm:flex"
+                class="btn-secondary btn-sm rounded-lg hidden sm:flex items-center justify-center"
+                [attr.title]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
               >
-                Theme
+                @if (isDark()) {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1.5m0 15V21m8.485-8.485h-1.5m-15 0H3m14.849 6.349-1.061-1.06M6.213 6.211l-1.06-1.06m12.727 0-1.06 1.06M6.213 17.788l-1.06 1.06M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                  </svg>
+                } @else {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+                  </svg>
+                }
               </button>
             </div>
             <div class="text-sm text-muted-foreground hidden sm:block">
@@ -389,21 +398,36 @@ import {
               <span class="text-xs text-muted-foreground whitespace-nowrap"
                 >WhatsApp No:</span
               >
-              <div class="flex items-center gap-1.5 flex-1">
-                <input
-                  type="text"
-                  placeholder="e.g. +919876543210"
-                  [(ngModel)]="whatsappNumber"
-                  class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
-                />
-                <button
-                  (click)="saveWhatsappNumber()"
-                  class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
-                  [disabled]="savingWhatsapp()"
-                >
-                  {{ savingWhatsapp() ? '...' : 'Save' }}
-                </button>
-              </div>
+              @if (editingWhatsapp()) {
+                <div class="flex items-center gap-1.5 flex-1">
+                  <input
+                    type="text"
+                    placeholder="e.g. +919876543210"
+                    [(ngModel)]="whatsappNumber"
+                    class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
+                  />
+                  <button
+                    (click)="saveWhatsappNumber()"
+                    class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
+                    [disabled]="savingWhatsapp()"
+                  >
+                    {{ savingWhatsapp() ? '...' : 'Save' }}
+                  </button>
+                </div>
+              } @else {
+                <div class="flex items-center gap-1.5 flex-1">
+                  <span class="text-xs font-mono text-foreground">{{ maskedWhatsapp() }}</span>
+                  <button
+                    (click)="editingWhatsapp.set(true)"
+                    class="p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
+                    title="Edit WhatsApp number"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.06 2.06 0 1 1 2.914 2.914L7.5 19.674l-4 1 1-4L16.862 4.487Z" />
+                    </svg>
+                  </button>
+                </div>
+              }
             </div>
           </div>
         </header>
@@ -421,21 +445,36 @@ import {
             <span class="text-xs text-muted-foreground font-medium"
               >WhatsApp Updates:</span
             >
-            <div class="flex items-center gap-1.5">
-              <input
-                type="text"
-                placeholder="e.g. +919876543210"
-                [(ngModel)]="whatsappNumber"
-                class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
-              />
-              <button
-                (click)="saveWhatsappNumber()"
-                class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
-                [disabled]="savingWhatsapp()"
-              >
-                {{ savingWhatsapp() ? '...' : 'Save' }}
-              </button>
-            </div>
+            @if (editingWhatsapp()) {
+              <div class="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  placeholder="e.g. +919876543210"
+                  [(ngModel)]="whatsappNumber"
+                  class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
+                />
+                <button
+                  (click)="saveWhatsappNumber()"
+                  class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
+                  [disabled]="savingWhatsapp()"
+                >
+                  {{ savingWhatsapp() ? '...' : 'Save' }}
+                </button>
+              </div>
+            } @else {
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-mono text-foreground">{{ maskedWhatsapp() }}</span>
+                <button
+                  (click)="editingWhatsapp.set(true)"
+                  class="p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
+                  title="Edit WhatsApp number"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.06 2.06 0 1 1 2.914 2.914L7.5 19.674l-4 1 1-4L16.862 4.487Z" />
+                  </svg>
+                </button>
+              </div>
+            }
           </div>
         </div>
 
@@ -551,24 +590,12 @@ import {
                 (change)="onSort($event)"
                 class="input h-9 w-auto rounded-lg pl-3 pr-8 text-sm font-medium cursor-pointer appearance-none"
               >
-                <option class="bg-card text-foreground" value="newest">
-                  Newest
-                </option>
-                <option class="bg-card text-foreground" value="oldest">
-                  Oldest
-                </option>
-                <option class="bg-card text-foreground" value="price_asc">
-                  Price ↑
-                </option>
-                <option class="bg-card text-foreground" value="price_desc">
-                  Price ↓
-                </option>
-                <option class="bg-card text-foreground" value="name">
-                  Name A-Z
-                </option>
-                <option class="bg-card text-foreground" value="savings">
-                  Most Saved
-                </option>
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="price_asc">Price ↑</option>
+                <option value="price_desc">Price ↓</option>
+                <option value="name">Name A-Z</option>
+                <option value="savings">Most Saved</option>
               </select>
               <svg
                 class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"
@@ -591,7 +618,9 @@ import {
         <div class="bg-card">
           <!-- Loading -->
           @if (loading()) {
-            <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div
+              class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            >
               @for (i of [1, 2, 3, 4, 5]; track i) {
                 <div class="border border-border rounded-xl overflow-hidden">
                   <div class="flex items-center gap-3 p-3">
@@ -626,19 +655,15 @@ import {
                     stroke-linecap="round"
                     stroke-linejoin="round"
                     stroke-width="1.5"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                    [attr.d]="emptyStateIcon"
                   />
                 </svg>
               </div>
               <h3 class="text-xl font-semibold mb-2">
-                {{ searchQuery ? 'No results found' : 'No items yet' }}
+                {{ emptyStateTitle }}
               </h3>
               <p class="text-muted-foreground text-sm max-w-xs mb-6">
-                {{
-                  searchQuery
-                    ? 'Try changing your search terms.'
-                    : 'When you add items to your wishlist, they will appear here.'
-                }}
+                {{ emptyStateSubtitle }}
               </p>
             </div>
           }
@@ -651,6 +676,8 @@ import {
                   ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
                   : 'p-4 flex flex-col gap-4'
               "
+              (dragover)="onGridDragOver($event)"
+              (drop)="onGridDrop($event)"
             >
               @for (
                 tile of wishlistSvc.tiles();
@@ -844,6 +871,7 @@ export class DashboardComponent implements OnInit {
   searchQuery = '';
   whatsappNumber = '';
   savingWhatsapp = signal(false);
+  editingWhatsapp = signal(false);
 
   constructor(
     public wishlistSvc: WishlistService,
@@ -873,8 +901,73 @@ export class DashboardComponent implements OnInit {
   userEmail() {
     return this.sb.currentUser?.email ?? '';
   }
+  userDisplayName(): string {
+    const local = this.userEmail().split('@')[0] || '';
+    const name = local
+      .split(/\d+/)
+      .filter(Boolean)
+      .join(' ');
+    if (!name) return this.userEmail();
+    return name
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
   userInitial() {
-    return this.userEmail().charAt(0).toUpperCase();
+    return this.userDisplayName().charAt(0).toUpperCase();
+  }
+  maskedWhatsapp(): string {
+    const num = this.whatsappNumber?.trim() || '';
+    if (!num) return 'Not set';
+    if (num.length <= 4) return '*'.repeat(num.length);
+    const first = num.slice(0, 2);
+    const last = num.slice(-2);
+    const middle = '*'.repeat(num.length - 4);
+    return `${first}${middle}${last}`;
+  }
+
+  get emptyStateIcon(): string {
+    if (this.searchQuery) {
+      return 'm21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z';
+    }
+    switch (this.filterBy()) {
+      case 'price_dropped':
+        return 'M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.169.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z';
+      case 'target_reached':
+        return 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+      case 'purchased':
+        return 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z';
+      default:
+        return 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z';
+    }
+  }
+
+  get emptyStateTitle(): string {
+    if (this.searchQuery) return 'No results found';
+    switch (this.filterBy()) {
+      case 'price_dropped':
+        return 'No price drops yet';
+      case 'target_reached':
+        return 'No targets met yet';
+      case 'purchased':
+        return 'Nothing purchased yet';
+      default:
+        return 'No items yet';
+    }
+  }
+
+  get emptyStateSubtitle(): string {
+    if (this.searchQuery) return 'Try changing your search terms.';
+    switch (this.filterBy()) {
+      case 'price_dropped':
+        return "We'll show items here as soon as a price drops.";
+      case 'target_reached':
+        return "Set a target price on an item and it'll show up here once reached.";
+      case 'purchased':
+        return 'Items you mark as purchased will show up here.';
+      default:
+        return 'When you add items to your wishlist, they will appear here.';
+    }
   }
 
   async ngOnInit() {
@@ -910,6 +1003,7 @@ export class DashboardComponent implements OnInit {
       this.toastSvc.error(error.message || 'Could not save number');
     } else {
       this.toastSvc.success('WhatsApp updates configured successfully!');
+      this.editingWhatsapp.set(false);
     }
   }
 
@@ -983,6 +1077,20 @@ export class DashboardComponent implements OnInit {
 
   async onRemoveFromGroup(itemId: string) {
     const { error } = await this.wishlistSvc.removeFromGroup(itemId);
+    if (error) this.toastSvc.error('Could not remove from group');
+  }
+
+  onGridDragOver(e: DragEvent) {
+    e.preventDefault();
+  }
+
+  async onGridDrop(e: DragEvent) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer?.getData('text/plain');
+    if (!draggedId) return;
+    // Bubbles here only when dropped on empty grid space (cards/group tiles
+    // stop propagation), so this is "drag it out" to leave its group.
+    const { error } = await this.wishlistSvc.removeFromGroup(draggedId);
     if (error) this.toastSvc.error('Could not remove from group');
   }
 

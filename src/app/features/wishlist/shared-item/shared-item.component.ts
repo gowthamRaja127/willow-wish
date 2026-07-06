@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ShareService, SharedItem } from '../../../core/services/share.service';
+import { CookieService } from '../../../core/services/cookie.service';
 
 @Component({
   selector: 'app-shared-item',
@@ -51,9 +52,17 @@ export class SharedItemComponent implements OnInit {
   loading = signal(true);
   item = signal<SharedItem | null>(null);
 
-  constructor(private route: ActivatedRoute, private shareSvc: ShareService, private router: Router) {}
+  constructor(
+    private route: ActivatedRoute,
+    private shareSvc: ShareService,
+    private router: Router,
+    private cookieSvc: CookieService,
+  ) {}
 
   async ngOnInit() {
+    const dark = this.cookieSvc.get('ww-dark') === 'true';
+    document.documentElement.classList.toggle('dark', dark);
+
     const token = this.route.snapshot.paramMap.get('token');
     if (token) {
       this.item.set(await this.shareSvc.fetchSharedItem(token));

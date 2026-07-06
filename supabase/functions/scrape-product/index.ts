@@ -30,7 +30,7 @@ function isPrivateIPv4(host: string): boolean {
   return false
 }
 
-function isAllowedProductUrl(rawUrl: string): boolean {
+export function isAllowedProductUrl(rawUrl: string): boolean {
   let parsed: URL
   try {
     parsed = new URL(rawUrl)
@@ -47,10 +47,44 @@ function isAllowedProductUrl(rawUrl: string): boolean {
 }
 
 /**
+ * Parse schema.org Product data out of any <script type="application/ld+json">
+ * block on the page. Most storefronts (Shopify, WooCommerce, and any site
+ * that wants Google Shopping listings) emit this even when the rest of the
+ * page is client-rendered, so it's a broad, site-agnostic fallback.
+ */
+export function extractJsonLdProduct(doc: any): { name?: string; image?: string; price?: number } | null {
+  const scripts = doc.querySelectorAll('script[type="application/ld+json"]')
+  for (const script of scripts) {
+    let parsed: any
+    try {
+      parsed = JSON.parse(script.textContent ?? '')
+    } catch {
+      continue
+    }
+    const candidates = Array.isArray(parsed) ? parsed : parsed?.['@graph'] ? parsed['@graph'] : [parsed]
+    for (const node of candidates) {
+      const type = node?.['@type']
+      const isProduct = type === 'Product' || (Array.isArray(type) && type.includes('Product'))
+      if (!isProduct) continue
+
+      const rawImage = node.image
+      const image = Array.isArray(rawImage) ? rawImage[0] : (typeof rawImage === 'object' ? rawImage?.url : rawImage)
+
+      const offers = Array.isArray(node.offers) ? node.offers[0] : node.offers
+      const rawPrice = offers?.price ?? offers?.priceSpecification?.price
+      const price = rawPrice != null ? parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) : undefined
+
+      return { name: node.name, image, price: price && price > 0 ? price : undefined }
+    }
+  }
+  return null
+}
+
+/**
  * Attempt to extract a price from various meta tags and known DOM patterns.
  * Returns 0 if nothing is found.
  */
-function extractPrice(doc: any): number {
+export function extractPrice(doc: any): number {
   // Standard Open Graph
   const ogPrice = doc.querySelector('meta[property="og:price:amount"]')?.getAttribute('content')
   if (ogPrice) {
@@ -81,14 +115,18 @@ function extractPrice(doc: any): number {
     if (n > 0) return n
   }
 
+  // Generic fallback: schema.org Product JSON-LD (Shopify/WooCommerce/etc.)
+  const jsonLd = extractJsonLdProduct(doc)
+  if (jsonLd?.price) return jsonLd.price
+
   return 0
 }
 
 /**
  * Pick the best available product image.
- * Priority: og:image → amazon landingImage → flipkart q6DClP → first img > 100px
+ * Priority: og:image → amazon landingImage → flipkart q6DClP → JSON-LD Product → twitter:image
  */
-function extractImage(doc: any): string | null {
+export function extractImage(doc: any): string | null {
   const og = doc.querySelector('meta[property="og:image"]')?.getAttribute('content')
   if (og) return og
 
@@ -101,13 +139,21 @@ function extractImage(doc: any): string | null {
   const fkImg = doc.querySelector('img.q6DClP')?.getAttribute('src')
   if (fkImg) return fkImg
 
+  // Generic fallback: schema.org Product JSON-LD (Shopify/WooCommerce/etc.)
+  const jsonLd = extractJsonLdProduct(doc)
+  if (jsonLd?.image) return jsonLd.image
+
+  // Generic fallback: Twitter Card image
+  const twitterImg = doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
+  if (twitterImg) return twitterImg
+
   return null
 }
 
 /**
  * Send notification (email/whatsapp) when price drops.
  */
-async function sendNotification(
+export async function sendNotification(
   userEmail: string,
   userWhatsapp: string | null,
   itemName: string,
@@ -223,7 +269,7 @@ async function uploadProductImage(supabase: any, itemId: string, imageUrl: strin
   }
 }
 
-serve(async (req: any) => {
+export async function handleRequest(req: any): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
@@ -286,6 +332,7 @@ serve(async (req: any) => {
     if (!doc) throw new Error('HTML parsing failure')
 
     const title  = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
+      || extractJsonLdProduct(doc)?.name
       || doc.querySelector('title')?.innerText || null
     let image  = extractImage(doc)
     
@@ -320,14 +367,26 @@ serve(async (req: any) => {
 
     const authHeader = req.headers.get('Authorization') ?? ''
     const bearerToken = authHeader.replace(/^Bearer\s+/i, '')
-    const { data: authData, error: authError } = await supabase.auth.getUser(bearerToken)
-    if (authError || !authData?.user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: corsHeaders }
-      )
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    // The scheduled re-scrape job (thrice-daily.yml) calls this function
+    // server-to-server with the service role key, not a user session — it
+    // already selects itemIds directly from the DB, so ownership is implicit.
+    // auth.getUser() only resolves real user sessions, so that trusted path
+    // must be checked separately or every scheduled call 401s.
+    const isServiceCaller = bearerToken !== '' && bearerToken === serviceRoleKey
+    let callerId: string | null = null
+
+    if (!isServiceCaller) {
+      const { data: authData, error: authError } = await supabase.auth.getUser(bearerToken)
+      if (authError || !authData?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: corsHeaders }
+        )
+      }
+      callerId = authData.user.id
     }
-    const callerId = authData.user.id
 
     if (itemId) {
       // 1. Fetch current stored fields to compare
@@ -337,7 +396,7 @@ serve(async (req: any) => {
         .eq('id', itemId)
         .single()
 
-      if (!existing || existing.user_id !== callerId) {
+      if (!existing || (!isServiceCaller && existing.user_id !== callerId)) {
         return new Response(
           JSON.stringify({ error: 'Forbidden' }),
           { status: 403, headers: corsHeaders }
@@ -418,4 +477,10 @@ serve(async (req: any) => {
       { status: 400, headers: corsHeaders }
     )
   }
-})
+}
+
+// Only start the listener when this file is run directly (Supabase's
+// runtime does exactly that) — importing it for tests must not bind a port.
+if (import.meta.main) {
+  serve(handleRequest)
+}
