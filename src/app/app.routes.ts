@@ -26,5 +26,9 @@ export const routes: Routes = [
     path: 'shared/item/:token',
     loadComponent: () => import('./features/wishlist/shared-item/shared-item.component').then(m => m.SharedItemComponent)
   },
+  {
+    path: 'shared/list/:token',
+    loadComponent: () => import('./features/wishlist/shared-wishlist/shared-wishlist.component').then(m => m.SharedWishlistComponent)
+  },
   { path: '**', redirectTo: '/auth/login' }
 ];
