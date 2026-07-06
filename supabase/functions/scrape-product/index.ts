@@ -12,7 +12,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const ALLOWED_PRODUCT_HOSTS = ['amazon.in', 'amazon.com', 'flipkart.com']
+// Blocks obviously-internal/private targets so scraping "any product link" can't be
+// used to reach internal services or cloud metadata endpoints (SSRF). This is a
+// hostname/IP-literal check, not a DNS-rebinding-proof one — acceptable for a
+// product scraper whose targets are public retailer pages, not trusted internal APIs.
+const BLOCKED_HOSTNAMES = ['localhost', '0.0.0.0', '::1']
+
+function isPrivateIPv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (!m) return false
+  const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)]
+  if (a === 10) return true
+  if (a === 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  return false
+}
 
 function isAllowedProductUrl(rawUrl: string): boolean {
   let parsed: URL
@@ -23,9 +39,11 @@ function isAllowedProductUrl(rawUrl: string): boolean {
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
   const host = parsed.hostname.toLowerCase()
-  return ALLOWED_PRODUCT_HOSTS.some(
-    (allowed) => host === allowed || host.endsWith(`.${allowed}`)
-  )
+  if (BLOCKED_HOSTNAMES.includes(host)) return false
+  if (host.endsWith('.local') || host.endsWith('.internal')) return false
+  if (isPrivateIPv4(host)) return false
+  if (host.startsWith('[') || host.includes(':')) return false // reject raw IPv6 literals
+  return true
 }
 
 /**

@@ -183,6 +183,26 @@ import {
             <span class="hidden lg:block text-base font-bold">Add Item</span>
           </button>
 
+          <button
+            (click)="showQuickAdd.set(true)"
+            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors text-primary"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            <span class="hidden lg:block text-base font-bold">Quick Add</span>
+          </button>
+
           <div class="flex items-center gap-1">
             <button
               (click)="onShareWishlist()"
@@ -202,7 +222,9 @@ import {
                   d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
                 />
               </svg>
-              <span class="hidden lg:block text-base">{{ sharingWishlist() ? 'Copying...' : 'Share Wishlist' }}</span>
+              <span class="hidden lg:block text-base text-left">{{
+                sharingWishlist() ? 'Copying...' : 'Share Wishlist'
+              }}</span>
             </button>
             <button
               (click)="onRegenerateWishlistShare()"
@@ -210,8 +232,18 @@ import {
               title="Regenerate wishlist share link"
               class="p-2 rounded-lg hover:bg-muted/50 transition-colors"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"
+                />
               </svg>
             </button>
           </div>
@@ -326,9 +358,7 @@ import {
       </nav>
 
       <!-- Main Content -->
-      <main
-        class="flex-1 w-full min-h-screen bg-background"
-      >
+      <main class="flex-1 w-full min-h-screen bg-background">
         <!-- Header: Profile-like stats -->
         <header
           class="p-6 md:p-10 border-b border-border flex flex-row items-center gap-6 sm:gap-10"
@@ -356,7 +386,9 @@ import {
             </div>
             <!-- WhatsApp Updates Config -->
             <div class="flex items-center gap-2 mt-1 max-w-sm hidden sm:flex">
-              <span class="text-xs text-muted-foreground whitespace-nowrap">WhatsApp No:</span>
+              <span class="text-xs text-muted-foreground whitespace-nowrap"
+                >WhatsApp No:</span
+              >
               <div class="flex items-center gap-1.5 flex-1">
                 <input
                   type="text"
@@ -380,10 +412,15 @@ import {
         <div
           class="p-4 text-sm text-muted-foreground sm:hidden border-b border-border space-y-3"
         >
-          <div>Organizing your wishes and catching price drops before they're gone. ✨</div>
-          
+          <div>
+            Organizing your wishes and catching price drops before they're gone.
+            ✨
+          </div>
+
           <div class="flex flex-col gap-1.5 pt-2 border-t border-border/40">
-            <span class="text-xs text-muted-foreground font-medium">WhatsApp Updates:</span>
+            <span class="text-xs text-muted-foreground font-medium"
+              >WhatsApp Updates:</span
+            >
             <div class="flex items-center gap-1.5">
               <input
                 type="text"
@@ -405,19 +442,27 @@ import {
         <!-- Stat tiles -->
         <div class="grid grid-cols-4 gap-3 p-4 border-b border-border">
           <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">{{ stats().total }}</div>
+            <div class="text-lg font-bold text-foreground">
+              {{ stats().total }}
+            </div>
             <div class="text-xs text-muted-foreground">Items</div>
           </div>
           <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">{{ stats().priceDrop }}</div>
+            <div class="text-lg font-bold text-foreground">
+              {{ stats().priceDrop }}
+            </div>
             <div class="text-xs text-muted-foreground">Drops</div>
           </div>
           <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">₹{{ stats().totalSavings | number: '1.0-0' }}</div>
+            <div class="text-lg font-bold text-foreground">
+              ₹{{ stats().totalSavings | number: '1.0-0' }}
+            </div>
             <div class="text-xs text-muted-foreground">Saved</div>
           </div>
           <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">{{ stats().purchased }}</div>
+            <div class="text-lg font-bold text-foreground">
+              {{ stats().purchased }}
+            </div>
             <div class="text-xs text-muted-foreground">Purchased</div>
           </div>
         </div>
@@ -432,8 +477,18 @@ import {
               class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
             >
               #{{ activeTag() }}
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           }
@@ -463,21 +518,31 @@ import {
             <!-- Grid Layout Toggle -->
             <button
               (click)="setViewMode('grid')"
-              [class]="viewMode() === 'grid' ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30' : 'p-2 rounded-full hover:bg-muted text-muted-foreground'"
+              [class]="
+                viewMode() === 'grid'
+                  ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30'
+                  : 'p-2 rounded-full hover:bg-muted text-muted-foreground'
+              "
               title="Grid View"
             >
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
+                <path
+                  d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"
+                />
               </svg>
             </button>
             <!-- List Layout Toggle -->
             <button
               (click)="setViewMode('list')"
-              [class]="viewMode() === 'list' ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30' : 'p-2 rounded-full hover:bg-muted text-muted-foreground'"
+              [class]="
+                viewMode() === 'list'
+                  ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30'
+                  : 'p-2 rounded-full hover:bg-muted text-muted-foreground'
+              "
               title="List View"
             >
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
               </svg>
             </button>
 
@@ -526,15 +591,15 @@ import {
         <div class="bg-card">
           <!-- Loading -->
           @if (loading()) {
-            <div class="space-y-6 py-6">
-              @for (i of [1, 2, 3]; track i) {
-                <div class="max-w-lg mx-auto border-b border-border pb-6">
+            <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              @for (i of [1, 2, 3, 4, 5]; track i) {
+                <div class="border border-border rounded-xl overflow-hidden">
                   <div class="flex items-center gap-3 p-3">
                     <div class="shimmer w-8 h-8 rounded-full"></div>
-                    <div class="shimmer w-32 h-4 rounded"></div>
+                    <div class="shimmer w-20 h-4 rounded"></div>
                   </div>
                   <div class="shimmer w-full aspect-square"></div>
-                  <div class="p-4 space-y-3">
+                  <div class="p-3.5 space-y-3">
                     <div class="shimmer h-4 w-3/4 rounded"></div>
                     <div class="shimmer h-3 w-1/2 rounded"></div>
                   </div>
@@ -580,8 +645,17 @@ import {
 
           <!-- Post Stream -->
           @if (!loading() && filteredItems().length > 0) {
-            <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'p-4 flex flex-col gap-4'">
-              @for (tile of wishlistSvc.tiles(); track tile.type === 'item' ? tile.item.id : tile.group.id) {
+            <div
+              [class]="
+                viewMode() === 'grid'
+                  ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
+                  : 'p-4 flex flex-col gap-4'
+              "
+            >
+              @for (
+                tile of wishlistSvc.tiles();
+                track tile.type === 'item' ? tile.item.id : tile.group.id
+              ) {
                 @if (tile.type === 'item') {
                   <app-item-card
                     [item]="tile.item"
@@ -636,6 +710,47 @@ import {
         />
       }
 
+      <!-- Quick Add Modal -->
+      @if (showQuickAdd()) {
+        <div class="modal-overlay" (click)="showQuickAdd.set(false)">
+          <div
+            class="modal-content max-w-sm"
+            (click)="$event.stopPropagation()"
+          >
+            <h2 class="text-lg font-display font-bold text-foreground mb-4">
+              Quick Add
+            </h2>
+            <form (ngSubmit)="onQuickAdd()">
+              <input
+                type="url"
+                [(ngModel)]="quickAddUrl"
+                name="quickAddUrl"
+                placeholder="Paste a product link"
+                class="input mb-4"
+                [disabled]="quickAdding()"
+                required
+              />
+              <div class="flex gap-3">
+                <button
+                  type="button"
+                  (click)="showQuickAdd.set(false)"
+                  class="btn-secondary btn-md flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="btn-primary btn-md flex-1"
+                  [disabled]="!quickAddUrl || quickAdding()"
+                >
+                  {{ quickAdding() ? 'Adding...' : 'Add' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+
       <!-- Toasts -->
       <div class="fixed bottom-20 md:bottom-6 right-6 z-[100] space-y-2">
         @for (toast of toastSvc.toasts(); track toast.id) {
@@ -646,18 +761,48 @@ import {
             [class.toast-info]="toast.type === 'info'"
           >
             @if (toast.type === 'success') {
-              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <svg
+                class="w-4 h-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             }
             @if (toast.type === 'error') {
-              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <svg
+                class="w-4 h-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 9v3.75m0 3.75h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             }
             @if (toast.type === 'info') {
-              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+              <svg
+                class="w-4 h-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                />
               </svg>
             }
             {{ toast.message }}
@@ -690,6 +835,9 @@ export class DashboardComponent implements OnInit {
   editingItem = signal<WishlistItem | null>(null);
   historyItemId = signal<string | null>(null);
   pendingGroupItemIds = signal<[string, string] | null>(null);
+  showQuickAdd = signal(false);
+  quickAdding = signal(false);
+  quickAddUrl = '';
   sharingWishlist = signal(false);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
@@ -734,10 +882,11 @@ export class DashboardComponent implements OnInit {
     this.isDark.set(dark);
     document.documentElement.classList.toggle('dark', dark);
 
-    const mode = (this.cookieSvc.get('ww-viewmode') as 'grid' | 'list') || 'grid';
+    const mode =
+      (this.cookieSvc.get('ww-viewmode') as 'grid' | 'list') || 'grid';
     this.viewMode.set(mode);
 
-    this.sb.user$.subscribe(user => {
+    this.sb.user$.subscribe((user) => {
       if (user) {
         this.whatsappNumber = user.user_metadata?.['whatsapp_number'] || '';
       }
@@ -754,7 +903,7 @@ export class DashboardComponent implements OnInit {
     }
     this.savingWhatsapp.set(true);
     const { error } = await this.sb.client.auth.updateUser({
-      data: { whatsapp_number: this.whatsappNumber }
+      data: { whatsapp_number: this.whatsappNumber },
     });
     this.savingWhatsapp.set(false);
     if (error) {
@@ -807,9 +956,11 @@ export class DashboardComponent implements OnInit {
 
   onDroppedOnItem(draggedId: string, targetItem: WishlistItem) {
     if (targetItem.group_id) {
-      this.wishlistSvc.addToGroup(targetItem.group_id, [draggedId]).then(({ error }) => {
-        if (error) this.toastSvc.error('Could not add to group');
-      });
+      this.wishlistSvc
+        .addToGroup(targetItem.group_id, [draggedId])
+        .then(({ error }) => {
+          if (error) this.toastSvc.error('Could not add to group');
+        });
       return;
     }
     this.pendingGroupItemIds.set([draggedId, targetItem.id]);
@@ -833,6 +984,22 @@ export class DashboardComponent implements OnInit {
   async onRemoveFromGroup(itemId: string) {
     const { error } = await this.wishlistSvc.removeFromGroup(itemId);
     if (error) this.toastSvc.error('Could not remove from group');
+  }
+
+  async onQuickAdd() {
+    if (!this.quickAddUrl) return;
+    this.quickAdding.set(true);
+    const { error } = await this.wishlistSvc.addItem({
+      product_url: this.quickAddUrl,
+    });
+    this.quickAdding.set(false);
+    if (error) {
+      this.toastSvc.error('Could not add item: ' + (error.message ?? error));
+      return;
+    }
+    this.quickAddUrl = '';
+    this.showQuickAdd.set(false);
+    this.toastSvc.success('Added! Fetching product details...');
   }
 
   async onShareWishlist() {
