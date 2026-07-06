@@ -7,6 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const ALLOWED_PRODUCT_HOSTS = ['amazon.in', 'amazon.com', 'flipkart.com']
+
+function isAllowedProductUrl(rawUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  return ALLOWED_PRODUCT_HOSTS.some(
+    (allowed) => host === allowed || host.endsWith(`.${allowed}`)
+  )
+}
+
 /**
  * Attempt to extract a price from various meta tags and known DOM patterns.
  * Returns 0 if nothing is found.
@@ -162,6 +178,13 @@ serve(async (req) => {
     const { url, itemId, userId, mode } = await req.json()
 
     if (!url) throw new Error('url is required')
+
+    if (!isAllowedProductUrl(url)) {
+      return new Response(
+        JSON.stringify({ error: 'URL host is not supported' }),
+        { status: 400, headers: corsHeaders }
+      )
+    }
 
     // ── Fetch product page ─────────────────────────────────────────────
     const response = await fetch(url, {
