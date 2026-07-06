@@ -46,3 +46,6 @@ Thumbs.db
 
 # Supabase temp directories
 supabase/.temp/
+
+# Claude Code worktrees (nested git checkouts, not part of this repo's history)
+.claude/worktrees/
