@@ -178,7 +178,18 @@ serve(async (req) => {
 
     const title  = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
       || doc.querySelector('title')?.innerText || null
-    const image  = extractImage(doc)
+    let image  = extractImage(doc)
+    
+    // Resolve relative image URLs to absolute URLs
+    if (image && !image.startsWith('http://') && !image.startsWith('https://')) {
+      try {
+        const parsedUrl = new URL(url)
+        image = new URL(image, parsedUrl.origin).href
+      } catch (e) {
+        console.error('Failed to resolve relative image URL:', e)
+      }
+    }
+
     const desc   = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || null
     const price  = extractPrice(doc)
 

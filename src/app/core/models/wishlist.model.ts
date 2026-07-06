@@ -31,6 +31,7 @@ export interface AddItemPayload {
   product_url: string;
   product_name?: string | null;
   description?: string | null;
+  image_url?: string | null;
   target_price?: number | null;
   target_purchase_date?: string | null;
   tags?: string[];
@@ -41,6 +42,7 @@ export interface AddItemPayload {
 export interface UpdateItemPayload {
   product_name?: string;
   description?: string;
+  image_url?: string | null;
   target_price?: number | null;
   target_purchase_date?: string | null;
   tags?: string[];

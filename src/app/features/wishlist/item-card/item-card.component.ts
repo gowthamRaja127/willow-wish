@@ -70,7 +70,7 @@ import { ToastService } from '../../../core/services/toast.service';
 
         <!-- Image -->
         <div class="relative w-full aspect-square bg-muted/30 flex items-center justify-center border-b border-border/40 overflow-hidden">
-          @if (item.image_url) {
+          @if (item.image_url && !hasImgError()) {
             <img [src]="item.image_url" [alt]="item.product_name" class="object-contain w-full h-full p-2 group-hover:scale-105 transition-transform duration-300" (error)="onImgError($event)" />
           } @else {
             <svg class="w-12 h-12 text-muted-foreground/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,7 +196,7 @@ import { ToastService } from '../../../core/services/toast.service';
       <div class="bg-card border border-border rounded-xl p-3 flex items-center gap-4 w-full relative group">
         <!-- Thumbnail -->
         <div class="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted/30 rounded-lg overflow-hidden shrink-0 flex items-center justify-center border border-border/40">
-          @if (item.image_url) {
+          @if (item.image_url && !hasImgError()) {
             <img [src]="item.image_url" [alt]="item.product_name" class="object-contain w-full h-full p-1" (error)="onImgError($event)" />
           } @else {
             <svg class="w-8 h-8 text-muted-foreground/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,6 +360,7 @@ export class ItemCardComponent {
 
   showActionsMenu = signal(false);
   confirmingDelete = signal(false);
+  hasImgError = signal(false);
 
   constructor(private wishlistSvc: WishlistService, private toast: ToastService) {}
 
@@ -385,7 +386,7 @@ export class ItemCardComponent {
   }
 
   onImgError(e: Event) {
-    (e.target as HTMLImageElement).style.display = 'none';
+    this.hasImgError.set(true);
   }
 
   toggleActionsMenu(e: MouseEvent) {

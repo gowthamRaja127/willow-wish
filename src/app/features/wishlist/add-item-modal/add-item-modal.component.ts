@@ -105,6 +105,17 @@ import { ToastService } from '../../../core/services/toast.service';
                 [disabled]="loading() || scrapingPreview()"
               />
             </div>
+            <div class="space-y-1.5">
+              <label class="text-sm font-medium text-foreground">Image URL</label>
+              <input
+                type="url"
+                [(ngModel)]="form.image_url"
+                name="image_url"
+                placeholder="https://example.com/image.jpg"
+                class="input"
+                [disabled]="loading() || scrapingPreview()"
+              />
+            </div>
           </div>
 
           <!-- Price & Priority -->
@@ -355,6 +366,7 @@ export class AddItemModalComponent implements OnInit {
       const payload: UpdateItemPayload = {
         product_name: this.form.product_name ?? undefined,
         description: this.form.description ?? undefined,
+        image_url: this.form.image_url ?? null,
         target_price: this.form.target_price ?? null,
         priority: this.form.priority,
         target_purchase_date: this.form.target_purchase_date ?? null,
@@ -374,6 +386,7 @@ export class AddItemModalComponent implements OnInit {
         product_url: this.form.product_url,
         product_name: this.form.product_name ?? null,
         description: this.form.description ?? null,
+        image_url: this.form.image_url ?? null,
         target_price: this.form.target_price ?? null,
         target_purchase_date: this.form.target_purchase_date ?? null,
         tags,
@@ -381,10 +394,6 @@ export class AddItemModalComponent implements OnInit {
         notes: this.form.notes ?? null,
       };
 
-      // Also copy image_url if scraped
-      if (this.form.image_url) {
-        (payload as any).image_url = this.form.image_url;
-      }
       if (this.scrapedPrice() !== null) {
         (payload as any).initial_price = this.scrapedPrice();
         (payload as any).current_price = this.scrapedPrice();
