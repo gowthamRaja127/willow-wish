@@ -187,32 +187,37 @@ serve(async (req) => {
     }
 
     // ── Fetch product page ─────────────────────────────────────────────
-    // redirect: 'manual' so a redirect on an allowed host can't be used to
-    // smuggle the request to a disallowed host (SSRF via open redirect).
-    let response = await fetch(url, {
-      redirect: 'manual',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    })
+    // redirect: 'manual' on every hop so a redirect can't be used to smuggle
+    // the request to a disallowed host (SSRF via open redirect) — each hop's
+    // target is re-validated against the same allowlist before being fetched.
+    const fetchHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    }
 
-    if (response.status >= 300 && response.status < 400) {
+    let currentUrl = url
+    let response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+
+    const MAX_REDIRECTS = 5
+    let redirectCount = 0
+    while (response.status >= 300 && response.status < 400) {
+      if (++redirectCount > MAX_REDIRECTS) {
+        return new Response(
+          JSON.stringify({ error: 'Too many redirects' }),
+          { status: 400, headers: corsHeaders }
+        )
+      }
       const location = response.headers.get('location')
-      if (!location || !isAllowedProductUrl(new URL(location, url).href)) {
+      const redirectTarget = location ? new URL(location, currentUrl).href : null
+      if (!redirectTarget || !isAllowedProductUrl(redirectTarget)) {
         return new Response(
           JSON.stringify({ error: 'URL host is not supported' }),
           { status: 400, headers: corsHeaders }
         )
       }
-      response = await fetch(new URL(location, url).href, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      })
+      currentUrl = redirectTarget
+      response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
     }
 
     const html = await response.text()
