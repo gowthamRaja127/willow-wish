@@ -194,6 +194,35 @@ async function sendNotification(
   }
 }
 
+/**
+ * Download the scraped image and re-host it in Supabase Storage (free tier)
+ * instead of hotlinking the retailer's URL, which can rot/rate-limit/block
+ * hotlinking. Falls back to null on any failure so the caller can fall back
+ * to the original hotlinked URL.
+ */
+async function uploadProductImage(supabase: any, itemId: string, imageUrl: string): Promise<string | null> {
+  if (!isAllowedProductUrl(imageUrl)) return null
+  try {
+    const res = await fetch(imageUrl)
+    if (!res.ok) return null
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    const path = `${itemId}.${ext}`
+
+    const { error } = await supabase.storage
+      .from('product-images')
+      .upload(path, bytes, { contentType, upsert: true })
+
+    if (error) return null
+
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+    return data?.publicUrl ?? null
+  } catch {
+    return null
+  }
+}
+
 serve(async (req: any) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -307,7 +336,10 @@ serve(async (req: any) => {
       }
 
       const patch: Record<string, any> = { last_scraped_at: new Date() }
-      if (image)  patch.image_url    = image
+      if (image) {
+        const storedImageUrl = await uploadProductImage(supabase, itemId, image)
+        patch.image_url = storedImageUrl ?? image
+      }
       if (title && !existing?.product_name)  patch.product_name = title
       if (desc && !existing?.description)   patch.description  = desc
 
