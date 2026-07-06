@@ -204,7 +204,7 @@ import {
               (click)="onRegenerateWishlistShare()"
               [disabled]="sharingWishlist()"
               title="Regenerate wishlist share link"
-              class="p-2 rounded-lg hover:bg-muted/50 transition-colors hidden lg:block"
+              class="p-2 rounded-lg hover:bg-muted/50 transition-colors"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>

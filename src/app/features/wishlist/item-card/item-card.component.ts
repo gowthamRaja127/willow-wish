@@ -492,6 +492,7 @@ export class ItemCardComponent {
       this.toast.error('Could not create share link');
       return;
     }
+    this.item.share_token = token;
     const url = `${window.location.origin}/shared/item/${token}`;
     await navigator.clipboard.writeText(url);
     this.toast.success('Share link copied to clipboard!');
