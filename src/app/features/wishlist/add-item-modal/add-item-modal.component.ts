@@ -82,7 +82,7 @@ import { ToastService } from '../../../core/services/toast.service';
           }
 
           <!-- Product Name & Description -->
-          <div class="space-y-3 p-3 bg-muted/20 border border-border/50 rounded-xl">
+          <div class="space-y-3 pb-3 border-b border-border">
             <div class="space-y-1.5">
               <label class="text-sm font-medium text-foreground">Product Name</label>
               <input
