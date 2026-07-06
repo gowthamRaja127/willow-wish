@@ -46,6 +46,12 @@ import { ToastService } from '../../../core/services/toast.service';
                   </svg>
                   Edit
                 </button>
+                <button (click)="onViewHistory($event)" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6"/>
+                  </svg>
+                  Price History
+                </button>
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -327,6 +333,12 @@ import { ToastService } from '../../../core/services/toast.service';
                   </svg>
                   Edit
                 </button>
+                <button (click)="onViewHistory($event)" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6"/>
+                  </svg>
+                  Price History
+                </button>
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -357,6 +369,7 @@ export class ItemCardComponent {
   @Input() viewMode: 'grid' | 'list' = 'grid';
   @Output() edit = new EventEmitter<WishlistItem>();
   @Output() deleted = new EventEmitter<string>();
+  @Output() viewHistory = new EventEmitter<WishlistItem>();
 
   showActionsMenu = signal(false);
   confirmingDelete = signal(false);
@@ -406,6 +419,12 @@ export class ItemCardComponent {
   onEdit(e: MouseEvent) {
     e.stopPropagation();
     this.edit.emit(this.item);
+    this.showActionsMenu.set(false);
+  }
+
+  onViewHistory(e: MouseEvent) {
+    e.stopPropagation();
+    this.viewHistory.emit(this.item);
     this.showActionsMenu.set(false);
   }
 

@@ -8,6 +8,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { CookieService } from '../../core/services/cookie.service';
 import { ItemCardComponent } from '../wishlist/item-card/item-card.component';
 import { AddItemModalComponent } from '../wishlist/add-item-modal/add-item-modal.component';
+import { PriceHistoryModalComponent } from '../wishlist/price-history-modal/price-history-modal.component';
 import {
   WishlistItem,
   SortBy,
@@ -22,6 +23,7 @@ import {
     FormsModule,
     ItemCardComponent,
     AddItemModalComponent,
+    PriceHistoryModalComponent,
   ],
   template: `
     <div
@@ -521,6 +523,7 @@ import {
                   [viewMode]="viewMode()"
                   (edit)="onEditItem($event)"
                   (deleted)="onDeleted($event)"
+                  (viewHistory)="onViewHistory($event)"
                 />
               }
             </div>
@@ -534,6 +537,14 @@ import {
           [editItem]="editingItem()"
           (close)="closeModal()"
           (saved)="wishlistSvc.loadItems()"
+        />
+      }
+
+      <!-- Price History Modal -->
+      @if (historyItemId()) {
+        <app-price-history-modal
+          [itemId]="historyItemId()!"
+          (close)="historyItemId.set(null)"
         />
       }
 
@@ -583,6 +594,7 @@ import {
 export class DashboardComponent implements OnInit {
   showAddModal = signal(false);
   editingItem = signal<WishlistItem | null>(null);
+  historyItemId = signal<string | null>(null);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
   searchQuery = '';
@@ -682,6 +694,10 @@ export class DashboardComponent implements OnInit {
   onEditItem(item: WishlistItem) {
     this.editingItem.set(item);
     this.showAddModal.set(true);
+  }
+
+  onViewHistory(item: WishlistItem) {
+    this.historyItemId.set(item.id);
   }
 
   onDeleted(_id: string) {}
