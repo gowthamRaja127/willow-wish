@@ -148,7 +148,7 @@ export class LoginComponent {
     if (error) {
       this.errorMessage.set(error.message || 'Sign in failed. Please try again.');
     } else {
-      this.toast.success('Welcome back! 🎉');
+      this.toast.success('Welcome back!');
       this.router.navigate(['/dashboard']);
     }
   }

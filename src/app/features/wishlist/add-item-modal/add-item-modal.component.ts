@@ -332,7 +332,7 @@ export class AddItemModalComponent implements OnInit {
             this.form.target_price = result.price;
           }
         }
-        this.toast.success('Auto-filled product details! ✨');
+        this.toast.success('Auto-filled product details!');
       } else {
         this.toast.info('Could not auto-scrape. You can type details manually.');
       }
@@ -424,7 +424,7 @@ export class AddItemModalComponent implements OnInit {
       if (error) {
         this.toast.error('Failed to add item: ' + error.message);
       } else {
-        this.toast.success('Item added to wishlist! 🎉');
+        this.toast.success('Item added to wishlist!');
         this.saved.emit();
         this.close.emit();
       }

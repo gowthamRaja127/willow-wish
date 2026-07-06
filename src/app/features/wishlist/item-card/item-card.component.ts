@@ -24,7 +24,9 @@ import { ShareService } from '../../../core/services/share.service';
               <h3 class="font-semibold text-sm leading-none text-foreground flex items-center gap-1 truncate">
                 {{ item.product_name || 'Unnamed Product' }}
                 @if (item.priority === 'high') {
-                  <span class="text-primary text-xs shrink-0" title="High Priority">🔥</span>
+                  <svg class="w-3.5 h-3.5 text-primary shrink-0" fill="currentColor" viewBox="0 0 24 24" title="High Priority">
+                  <path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/>
+                </svg>
                 }
               </h3>
               <p class="text-[10px] text-muted-foreground mt-0.5">Added {{ timeAgo(item.last_scraped_at) }}</p>
@@ -116,7 +118,9 @@ import { ShareService } from '../../../core/services/share.service';
           @if (item.is_purchased) {
             <div class="absolute inset-0 bg-background/85 backdrop-blur-[2px] flex items-center justify-center z-10">
               <div class="text-center">
-                <div class="text-4xl mb-1">✅</div>
+                <svg class="w-10 h-10 mx-auto mb-1 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
                 <p class="font-bold text-foreground text-sm">Purchased</p>
               </div>
             </div>
@@ -227,7 +231,9 @@ import { ShareService } from '../../../core/services/share.service';
           
           @if (item.is_purchased) {
             <div class="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
-              <span class="text-sm">✅</span>
+              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
             </div>
           }
         </div>
@@ -519,7 +525,7 @@ export class ItemCardComponent {
   async onMarkPurchased() {
     const { error } = await this.wishlistSvc.markPurchased(this.item.id);
     if (error) this.toast.error('Could not update item');
-    else this.toast.success('🎉 Marked as purchased!');
+    else this.toast.success('Marked as purchased!');
   }
 
   timeAgo(date: string): string {
