@@ -287,14 +287,14 @@ import {
 
       <!-- Main Content -->
       <main
-        class="flex-1 w-full max-w-4xl mx-auto border-x border-border min-h-screen bg-background"
+        class="flex-1 w-full min-h-screen bg-background"
       >
         <!-- Header: Profile-like stats -->
         <header
           class="p-6 md:p-10 border-b border-border flex flex-row items-center gap-6 sm:gap-10"
         >
           <div
-            class="w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-primary-dark to-primary flex items-center justify-center text-3xl sm:text-5xl font-bold text-primary-foreground shrink-0 border-2 border-primary-dark shadow-glow-lg"
+            class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted border border-border flex items-center justify-center text-3xl sm:text-4xl font-bold text-foreground shrink-0"
           >
             {{ userInitial() }}
           </div>
@@ -305,25 +305,10 @@ import {
               </h1>
               <button
                 (click)="toggleDark()"
-                class="btn-secondary btn-sm rounded-full hidden sm:flex"
+                class="btn-secondary btn-sm rounded-lg hidden sm:flex"
               >
                 Theme
               </button>
-            </div>
-            <div class="flex items-center gap-6 text-sm sm:text-base">
-              <div>
-                <span class="font-bold text-lg">{{ stats().total }}</span> items
-              </div>
-              <div>
-                <span class="font-bold text-lg">{{ stats().priceDrop }}</span>
-                drops
-              </div>
-              <div>
-                <span class="font-bold text-lg"
-                  >₹{{ stats().totalSavings | number: '1.0-0' }}</span
-                >
-                saved
-              </div>
             </div>
             <div class="text-sm text-muted-foreground hidden sm:block">
               Organizing your wishes and catching price drops before they're
@@ -377,7 +362,27 @@ import {
           </div>
         </div>
 
-        <!-- Search & Sort (Instagram Stories-like bar or clean toolbar) -->
+        <!-- Stat tiles -->
+        <div class="grid grid-cols-4 gap-3 p-4 border-b border-border">
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">{{ stats().total }}</div>
+            <div class="text-xs text-muted-foreground">Items</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">{{ stats().priceDrop }}</div>
+            <div class="text-xs text-muted-foreground">Drops</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">₹{{ stats().totalSavings | number: '1.0-0' }}</div>
+            <div class="text-xs text-muted-foreground">Saved</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">{{ stats().purchased }}</div>
+            <div class="text-xs text-muted-foreground">Purchased</div>
+          </div>
+        </div>
+
+        <!-- Search & Sort -->
         <div
           class="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
         >
@@ -400,7 +405,7 @@ import {
               [(ngModel)]="searchQuery"
               (input)="onSearch()"
               placeholder="Search wishlist..."
-              class="input pl-9 h-9 bg-muted/50 border-none rounded-full"
+              class="input pl-9 h-9 rounded-lg"
             />
           </div>
           <div class="flex items-center gap-2">
@@ -427,7 +432,7 @@ import {
 
             <select
               (change)="onSort($event)"
-              class="glass rounded-full px-4 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground font-medium cursor-pointer appearance-none shadow-sm transition-all hover:bg-card/90"
+              class="input h-9 w-auto rounded-lg px-3 text-sm font-medium cursor-pointer appearance-none"
             >
               <option class="bg-card text-foreground" value="newest">
                 Newest
@@ -509,7 +514,7 @@ import {
 
           <!-- Post Stream -->
           @if (!loading() && filteredItems().length > 0) {
-            <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'p-4 flex flex-col gap-4'">
+            <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'p-4 flex flex-col gap-4'">
               @for (item of filteredItems(); track item.id) {
                 <app-item-card
                   [item]="item"
