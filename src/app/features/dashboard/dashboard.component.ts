@@ -790,8 +790,12 @@ export class DashboardComponent implements OnInit {
       return;
     }
     const url = `${window.location.origin}/shared/list/${token}`;
-    await navigator.clipboard.writeText(url);
-    this.toastSvc.success('Wishlist share link copied to clipboard!');
+    try {
+      await navigator.clipboard.writeText(url);
+      this.toastSvc.success('Wishlist share link copied to clipboard!');
+    } catch {
+      this.toastSvc.info(`Share link: ${url}`);
+    }
   }
 
   onDeleted(_id: string) {}

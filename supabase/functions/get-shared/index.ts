@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 const SHARED_ITEM_FIELDS =
-  'id, product_name, description, image_url, product_url, target_price, current_price, initial_price, target_purchase_date, tags, priority, notes, is_purchased, created_at'
+  'id, product_name, description, image_url, target_price, current_price, initial_price, target_purchase_date, tags, priority, notes, is_purchased, created_at'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })

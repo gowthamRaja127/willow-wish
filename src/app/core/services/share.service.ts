@@ -4,7 +4,7 @@ import { environment } from '../../../environments/environment';
 import { WishlistItem } from '../models/wishlist.model';
 
 export type SharedItem = Pick<WishlistItem,
-  'id' | 'product_name' | 'description' | 'image_url' | 'product_url' |
+  'id' | 'product_name' | 'description' | 'image_url' |
   'target_price' | 'current_price' | 'initial_price' | 'target_purchase_date' |
   'tags' | 'priority' | 'notes' | 'is_purchased' | 'created_at'
 >;

@@ -494,8 +494,12 @@ export class ItemCardComponent {
     }
     this.item.share_token = token;
     const url = `${window.location.origin}/shared/item/${token}`;
-    await navigator.clipboard.writeText(url);
-    this.toast.success('Share link copied to clipboard!');
+    try {
+      await navigator.clipboard.writeText(url);
+      this.toast.success('Share link copied to clipboard!');
+    } catch {
+      this.toast.info(`Share link: ${url}`);
+    }
   }
 
   async onDelete(e: MouseEvent) {

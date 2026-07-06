@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
   selector: 'app-forgot-password',
@@ -74,7 +73,7 @@ export class ForgotPasswordComponent {
   emailSent = signal(false);
   errorMessage = signal('');
 
-  constructor(private sb: SupabaseService, private toast: ToastService) {}
+  constructor(private sb: SupabaseService) {}
 
   async onSubmit() {
     if (!this.email) return;
