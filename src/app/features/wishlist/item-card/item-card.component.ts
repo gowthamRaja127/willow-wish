@@ -59,6 +59,14 @@ import { ShareService } from '../../../core/services/share.service';
                   </svg>
                   {{ sharing() ? 'Copying link...' : 'Share' }}
                 </button>
+                @if (item.share_token) {
+                  <button (click)="onRegenerateShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                    <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+                    </svg>
+                    Regenerate Link
+                  </button>
+                }
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -352,6 +360,14 @@ import { ShareService } from '../../../core/services/share.service';
                   </svg>
                   {{ sharing() ? 'Copying link...' : 'Share' }}
                 </button>
+                @if (item.share_token) {
+                  <button (click)="onRegenerateShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                    <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+                    </svg>
+                    Regenerate Link
+                  </button>
+                }
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -459,6 +475,19 @@ export class ItemCardComponent {
     const { token, error } = await this.shareSvc.getItemShareToken(this.item);
     this.sharing.set(false);
     this.showActionsMenu.set(false);
+    await this.copyItemShareLink(token, error);
+  }
+
+  async onRegenerateShare(e: MouseEvent) {
+    e.stopPropagation();
+    this.sharing.set(true);
+    const { token, error } = await this.shareSvc.regenerateItemShareToken(this.item.id);
+    this.sharing.set(false);
+    this.showActionsMenu.set(false);
+    await this.copyItemShareLink(token, error);
+  }
+
+  private async copyItemShareLink(token: string | null, error: any) {
     if (error || !token) {
       this.toast.error('Could not create share link');
       return;

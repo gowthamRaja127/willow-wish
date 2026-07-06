@@ -179,26 +179,38 @@ import {
             <span class="hidden lg:block text-base font-bold">Add Item</span>
           </button>
 
-          <button
-            (click)="onShareWishlist()"
-            [disabled]="sharingWishlist()"
-            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors"
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div class="flex items-center gap-1">
+            <button
+              (click)="onShareWishlist()"
+              [disabled]="sharingWishlist()"
+              class="flex items-center gap-4 p-3 flex-1 rounded-lg hover:bg-muted/50 transition-colors"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
-              />
-            </svg>
-            <span class="hidden lg:block text-base">{{ sharingWishlist() ? 'Copying...' : 'Share Wishlist' }}</span>
-          </button>
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
+                />
+              </svg>
+              <span class="hidden lg:block text-base">{{ sharingWishlist() ? 'Copying...' : 'Share Wishlist' }}</span>
+            </button>
+            <button
+              (click)="onRegenerateWishlistShare()"
+              [disabled]="sharingWishlist()"
+              title="Regenerate wishlist share link"
+              class="p-2 rounded-lg hover:bg-muted/50 transition-colors hidden lg:block"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+              </svg>
+            </button>
+          </div>
         </nav>
 
         <div class="mt-auto pt-4 border-t border-border">
@@ -762,6 +774,17 @@ export class DashboardComponent implements OnInit {
     this.sharingWishlist.set(true);
     const { token, error } = await this.shareSvc.getWishlistShareToken();
     this.sharingWishlist.set(false);
+    await this.copyWishlistShareLink(token, error);
+  }
+
+  async onRegenerateWishlistShare() {
+    this.sharingWishlist.set(true);
+    const { token, error } = await this.shareSvc.regenerateWishlistShareToken();
+    this.sharingWishlist.set(false);
+    await this.copyWishlistShareLink(token, error);
+  }
+
+  private async copyWishlistShareLink(token: string | null, error: any) {
     if (error || !token) {
       this.toastSvc.error('Could not create share link');
       return;
