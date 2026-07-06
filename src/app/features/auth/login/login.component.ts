@@ -10,13 +10,7 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div class="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center p-4">
-      <!-- Background pattern -->
-      <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-primary/5 blur-3xl"></div>
-        <div class="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-primary/8 blur-3xl"></div>
-      </div>
-
+    <div class="min-h-screen bg-background flex items-center justify-center p-4">
       <div class="w-full max-w-md relative">
         <!-- Logo -->
         <div class="text-center mb-8 animate-fade-in">
@@ -28,7 +22,7 @@ import { ToastService } from '../../../core/services/toast.service';
         </div>
 
         <!-- Card -->
-        <div class="card p-8 animate-slide-up shadow-card-hover">
+        <div class="card p-8 animate-slide-up">
           <!-- Error -->
           @if (errorMessage()) {
             <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">

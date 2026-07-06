@@ -8,6 +8,8 @@ import { ToastService } from '../../core/services/toast.service';
 import { CookieService } from '../../core/services/cookie.service';
 import { ItemCardComponent } from '../wishlist/item-card/item-card.component';
 import { AddItemModalComponent } from '../wishlist/add-item-modal/add-item-modal.component';
+import { PriceHistoryModalComponent } from '../wishlist/price-history-modal/price-history-modal.component';
+import { ShareService } from '../../core/services/share.service';
 import {
   WishlistItem,
   SortBy,
@@ -22,6 +24,7 @@ import {
     FormsModule,
     ItemCardComponent,
     AddItemModalComponent,
+    PriceHistoryModalComponent,
   ],
   template: `
     <div
@@ -175,6 +178,39 @@ import {
             </svg>
             <span class="hidden lg:block text-base font-bold">Add Item</span>
           </button>
+
+          <div class="flex items-center gap-1">
+            <button
+              (click)="onShareWishlist()"
+              [disabled]="sharingWishlist()"
+              class="flex items-center gap-4 p-3 flex-1 rounded-lg hover:bg-muted/50 transition-colors"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
+                />
+              </svg>
+              <span class="hidden lg:block text-base">{{ sharingWishlist() ? 'Copying...' : 'Share Wishlist' }}</span>
+            </button>
+            <button
+              (click)="onRegenerateWishlistShare()"
+              [disabled]="sharingWishlist()"
+              title="Regenerate wishlist share link"
+              class="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+              </svg>
+            </button>
+          </div>
         </nav>
 
         <div class="mt-auto pt-4 border-t border-border">
@@ -287,14 +323,14 @@ import {
 
       <!-- Main Content -->
       <main
-        class="flex-1 w-full max-w-4xl mx-auto border-x border-border min-h-screen bg-background"
+        class="flex-1 w-full min-h-screen bg-background"
       >
         <!-- Header: Profile-like stats -->
         <header
           class="p-6 md:p-10 border-b border-border flex flex-row items-center gap-6 sm:gap-10"
         >
           <div
-            class="w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-primary-dark to-primary flex items-center justify-center text-3xl sm:text-5xl font-bold text-primary-foreground shrink-0 border-2 border-primary-dark shadow-glow-lg"
+            class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted border border-border flex items-center justify-center text-3xl sm:text-4xl font-bold text-foreground shrink-0"
           >
             {{ userInitial() }}
           </div>
@@ -305,25 +341,10 @@ import {
               </h1>
               <button
                 (click)="toggleDark()"
-                class="btn-secondary btn-sm rounded-full hidden sm:flex"
+                class="btn-secondary btn-sm rounded-lg hidden sm:flex"
               >
                 Theme
               </button>
-            </div>
-            <div class="flex items-center gap-6 text-sm sm:text-base">
-              <div>
-                <span class="font-bold text-lg">{{ stats().total }}</span> items
-              </div>
-              <div>
-                <span class="font-bold text-lg">{{ stats().priceDrop }}</span>
-                drops
-              </div>
-              <div>
-                <span class="font-bold text-lg"
-                  >₹{{ stats().totalSavings | number: '1.0-0' }}</span
-                >
-                saved
-              </div>
             </div>
             <div class="text-sm text-muted-foreground hidden sm:block">
               Organizing your wishes and catching price drops before they're
@@ -377,10 +398,41 @@ import {
           </div>
         </div>
 
-        <!-- Search & Sort (Instagram Stories-like bar or clean toolbar) -->
+        <!-- Stat tiles -->
+        <div class="grid grid-cols-4 gap-3 p-4 border-b border-border">
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">{{ stats().total }}</div>
+            <div class="text-xs text-muted-foreground">Items</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">{{ stats().priceDrop }}</div>
+            <div class="text-xs text-muted-foreground">Drops</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">₹{{ stats().totalSavings | number: '1.0-0' }}</div>
+            <div class="text-xs text-muted-foreground">Saved</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">{{ stats().purchased }}</div>
+            <div class="text-xs text-muted-foreground">Purchased</div>
+          </div>
+        </div>
+
+        <!-- Search & Sort -->
         <div
           class="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
         >
+          @if (activeTag()) {
+            <button
+              (click)="wishlistSvc.toggleTag(activeTag()!)"
+              class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
+            >
+              #{{ activeTag() }}
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          }
           <div class="flex-1 relative max-w-sm">
             <svg
               class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
@@ -400,7 +452,7 @@ import {
               [(ngModel)]="searchQuery"
               (input)="onSearch()"
               placeholder="Search wishlist..."
-              class="input pl-9 h-9 bg-muted/50 border-none rounded-full"
+              class="input pl-9 h-9 rounded-lg"
             />
           </div>
           <div class="flex items-center gap-2">
@@ -425,29 +477,44 @@ import {
               </svg>
             </button>
 
-            <select
-              (change)="onSort($event)"
-              class="glass rounded-full px-4 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground font-medium cursor-pointer appearance-none shadow-sm transition-all hover:bg-card/90"
-            >
-              <option class="bg-card text-foreground" value="newest">
-                Newest
-              </option>
-              <option class="bg-card text-foreground" value="oldest">
-                Oldest
-              </option>
-              <option class="bg-card text-foreground" value="price_asc">
-                Price ↑
-              </option>
-              <option class="bg-card text-foreground" value="price_desc">
-                Price ↓
-              </option>
-              <option class="bg-card text-foreground" value="name">
-                Name A-Z
-              </option>
-              <option class="bg-card text-foreground" value="savings">
-                Most Saved
-              </option>
-            </select>
+            <div class="relative">
+              <select
+                (change)="onSort($event)"
+                class="input h-9 w-auto rounded-lg pl-3 pr-8 text-sm font-medium cursor-pointer appearance-none"
+              >
+                <option class="bg-card text-foreground" value="newest">
+                  Newest
+                </option>
+                <option class="bg-card text-foreground" value="oldest">
+                  Oldest
+                </option>
+                <option class="bg-card text-foreground" value="price_asc">
+                  Price ↑
+                </option>
+                <option class="bg-card text-foreground" value="price_desc">
+                  Price ↓
+                </option>
+                <option class="bg-card text-foreground" value="name">
+                  Name A-Z
+                </option>
+                <option class="bg-card text-foreground" value="savings">
+                  Most Saved
+                </option>
+              </select>
+              <svg
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -509,13 +576,15 @@ import {
 
           <!-- Post Stream -->
           @if (!loading() && filteredItems().length > 0) {
-            <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'p-4 flex flex-col gap-4'">
+            <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'p-4 flex flex-col gap-4'">
               @for (item of filteredItems(); track item.id) {
                 <app-item-card
                   [item]="item"
                   [viewMode]="viewMode()"
                   (edit)="onEditItem($event)"
                   (deleted)="onDeleted($event)"
+                  (viewHistory)="onViewHistory($event)"
+                  (tagClick)="onTagClick($event)"
                 />
               }
             </div>
@@ -529,6 +598,14 @@ import {
           [editItem]="editingItem()"
           (close)="closeModal()"
           (saved)="wishlistSvc.loadItems()"
+        />
+      }
+
+      <!-- Price History Modal -->
+      @if (historyItemId()) {
+        <app-price-history-modal
+          [itemId]="historyItemId()!"
+          (close)="historyItemId.set(null)"
         />
       }
 
@@ -578,6 +655,8 @@ import {
 export class DashboardComponent implements OnInit {
   showAddModal = signal(false);
   editingItem = signal<WishlistItem | null>(null);
+  historyItemId = signal<string | null>(null);
+  sharingWishlist = signal(false);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
   searchQuery = '';
@@ -590,6 +669,7 @@ export class DashboardComponent implements OnInit {
     private sb: SupabaseService,
     private router: Router,
     private cookieSvc: CookieService,
+    private shareSvc: ShareService,
   ) {}
 
   get filteredItems() {
@@ -603,6 +683,9 @@ export class DashboardComponent implements OnInit {
   }
   get filterBy() {
     return this.wishlistSvc.filterBy;
+  }
+  get activeTag() {
+    return this.wishlistSvc.activeTag;
   }
 
   userEmail() {
@@ -677,6 +760,42 @@ export class DashboardComponent implements OnInit {
   onEditItem(item: WishlistItem) {
     this.editingItem.set(item);
     this.showAddModal.set(true);
+  }
+
+  onViewHistory(item: WishlistItem) {
+    this.historyItemId.set(item.id);
+  }
+
+  onTagClick(tag: string) {
+    this.wishlistSvc.toggleTag(tag);
+  }
+
+  async onShareWishlist() {
+    this.sharingWishlist.set(true);
+    const { token, error } = await this.shareSvc.getWishlistShareToken();
+    this.sharingWishlist.set(false);
+    await this.copyWishlistShareLink(token, error);
+  }
+
+  async onRegenerateWishlistShare() {
+    this.sharingWishlist.set(true);
+    const { token, error } = await this.shareSvc.regenerateWishlistShareToken();
+    this.sharingWishlist.set(false);
+    await this.copyWishlistShareLink(token, error);
+  }
+
+  private async copyWishlistShareLink(token: string | null, error: any) {
+    if (error || !token) {
+      this.toastSvc.error('Could not create share link');
+      return;
+    }
+    const url = `${window.location.origin}/shared/list/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.toastSvc.success('Wishlist share link copied to clipboard!');
+    } catch {
+      this.toastSvc.info(`Share link: ${url}`);
+    }
   }
 
   onDeleted(_id: string) {}

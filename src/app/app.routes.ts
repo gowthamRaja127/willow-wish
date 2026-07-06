@@ -4,11 +4,16 @@ import { authGuard, guestGuard } from './core/guards/auth.guard';
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   {
+    path: 'auth/reset-password',
+    loadComponent: () => import('./features/auth/reset-password/reset-password.component').then(m => m.ResetPasswordComponent),
+  },
+  {
     path: 'auth',
     canActivate: [guestGuard],
     children: [
       { path: 'login', loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent) },
       { path: 'register', loadComponent: () => import('./features/auth/register/register.component').then(m => m.RegisterComponent) },
+      { path: 'forgot-password', loadComponent: () => import('./features/auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent) },
       { path: '', redirectTo: 'login', pathMatch: 'full' },
     ]
   },
@@ -16,6 +21,14 @@ export const routes: Routes = [
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
+  },
+  {
+    path: 'shared/item/:token',
+    loadComponent: () => import('./features/wishlist/shared-item/shared-item.component').then(m => m.SharedItemComponent)
+  },
+  {
+    path: 'shared/list/:token',
+    loadComponent: () => import('./features/wishlist/shared-wishlist/shared-wishlist.component').then(m => m.SharedWishlistComponent)
   },
   { path: '**', redirectTo: '/auth/login' }
 ];

@@ -47,7 +47,9 @@ jobs:
         with:
           version: 2.107.0
 
-      - name: Deploy Edge Function
-        run: supabase functions deploy scrape-product --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      - name: Deploy Edge Functions
+        run: |
+          supabase functions deploy scrape-product --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy get-shared --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

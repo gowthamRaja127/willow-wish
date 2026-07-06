@@ -12,6 +12,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const ALLOWED_PRODUCT_HOSTS = ['amazon.in', 'amazon.com', 'flipkart.com']
+
+function isAllowedProductUrl(rawUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  return ALLOWED_PRODUCT_HOSTS.some(
+    (allowed) => host === allowed || host.endsWith(`.${allowed}`)
+  )
+}
+
 /**
  * Attempt to extract a price from various meta tags and known DOM patterns.
  * Returns 0 if nothing is found.
@@ -168,14 +184,46 @@ serve(async (req: any) => {
 
     if (!url) throw new Error('url is required')
 
+    if (!isAllowedProductUrl(url)) {
+      return new Response(
+        JSON.stringify({ error: 'URL host is not supported' }),
+        { status: 400, headers: corsHeaders }
+      )
+    }
+
     // ── Fetch product page ─────────────────────────────────────────────
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    })
+    // redirect: 'manual' on every hop so a redirect can't be used to smuggle
+    // the request to a disallowed host (SSRF via open redirect) — each hop's
+    // target is re-validated against the same allowlist before being fetched.
+    const fetchHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    }
+
+    let currentUrl = url
+    let response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+
+    const MAX_REDIRECTS = 5
+    let redirectCount = 0
+    while (response.status >= 300 && response.status < 400) {
+      if (++redirectCount > MAX_REDIRECTS) {
+        return new Response(
+          JSON.stringify({ error: 'Too many redirects' }),
+          { status: 400, headers: corsHeaders }
+        )
+      }
+      const location = response.headers.get('location')
+      const redirectTarget = location ? new URL(location, currentUrl).href : null
+      if (!redirectTarget || !isAllowedProductUrl(redirectTarget)) {
+        return new Response(
+          JSON.stringify({ error: 'URL host is not supported' }),
+          { status: 400, headers: corsHeaders }
+        )
+      }
+      currentUrl = redirectTarget
+      response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+    }
 
     const html = await response.text()
     const doc = new DOMParser().parseFromString(html, 'text/html')
@@ -214,6 +262,17 @@ serve(async (req: any) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, '')
+    const { data: authData, error: authError } = await supabase.auth.getUser(bearerToken)
+    if (authError || !authData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: corsHeaders }
+      )
+    }
+    const callerId = authData.user.id
+
     if (itemId) {
       // 1. Fetch current stored fields to compare
       const { data: existing } = await supabase
@@ -222,17 +281,29 @@ serve(async (req: any) => {
         .eq('id', itemId)
         .single()
 
-      const patch: any = { last_scraped_at: new Date() }
+      if (!existing || existing.user_id !== callerId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: corsHeaders }
+        )
+      }
+
+      const patch: Record<string, any> = { last_scraped_at: new Date() }
       if (image)  patch.image_url    = image
       if (title && !existing?.product_name)  patch.product_name = title
       if (desc && !existing?.description)   patch.description  = desc
 
       if (price > 0) {
+        const isNewPricePoint = existing?.current_price == null || price !== existing.current_price
         patch.current_price = price
-        
+
         // If initial price is not set, set it now
         if (!existing?.initial_price) {
           patch.initial_price = price;
+        }
+
+        if (isNewPricePoint) {
+          await supabase.from('price_history').insert({ item_id: itemId, price })
         }
 
         // Compare price change
@@ -260,6 +331,12 @@ serve(async (req: any) => {
       
       await supabase.from('items').update(patch).eq('id', itemId)
     } else if (userId) {
+      if (userId !== callerId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: corsHeaders }
+        )
+      }
       // Legacy / Backup
       await supabase.from('items').insert({
         user_id: userId,

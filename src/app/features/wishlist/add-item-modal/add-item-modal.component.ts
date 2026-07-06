@@ -82,7 +82,7 @@ import { ToastService } from '../../../core/services/toast.service';
           }
 
           <!-- Product Name & Description -->
-          <div class="space-y-3 p-3 bg-muted/20 border border-border/50 rounded-xl">
+          <div class="space-y-3 pb-3 border-b border-border">
             <div class="space-y-1.5">
               <label class="text-sm font-medium text-foreground">Product Name</label>
               <input
@@ -135,11 +135,16 @@ import { ToastService } from '../../../core/services/toast.service';
             </div>
             <div class="space-y-1.5">
               <label class="text-sm font-medium text-foreground">Priority</label>
-              <select [(ngModel)]="form.priority" name="priority" class="input">
-                <option value="low">🟢 Low</option>
-                <option value="medium">🟡 Medium</option>
-                <option value="high">🔴 High</option>
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="form.priority" name="priority" class="input pr-8 appearance-none cursor-pointer">
+                  <option value="low">🟢 Low</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="high">🔴 High</option>
+                </select>
+                <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -148,24 +153,39 @@ import { ToastService } from '../../../core/services/toast.service';
             <label class="text-sm font-medium text-foreground">Target Purchase Date</label>
             <div class="grid grid-cols-3 gap-2">
               <!-- Day -->
-              <select [(ngModel)]="dateDay" name="dateDay" (ngModelChange)="syncDate()" class="input text-sm" [disabled]="loading()">
-                <option value="">Day</option>
-                @for (d of days(); track d) {
-                  <option [value]="d">{{ d }}</option>
-                }
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="dateDay" name="dateDay" (ngModelChange)="syncDate()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  <option value="">Day</option>
+                  @for (d of days(); track d) {
+                    <option [value]="d">{{ d }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
               <!-- Month -->
-              <select [(ngModel)]="dateMonth" name="dateMonth" (ngModelChange)="onMonthOrYearChange()" class="input text-sm" [disabled]="loading()">
-                @for (m of months; track m.value) {
-                  <option [value]="m.value">{{ m.label }}</option>
-                }
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="dateMonth" name="dateMonth" (ngModelChange)="onMonthOrYearChange()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  @for (m of months; track m.value) {
+                    <option [value]="m.value">{{ m.label }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
               <!-- Year -->
-              <select [(ngModel)]="dateYear" name="dateYear" (ngModelChange)="onMonthOrYearChange()" class="input text-sm" [disabled]="loading()">
-                @for (y of years; track y) {
-                  <option [value]="y">{{ y }}</option>
-                }
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="dateYear" name="dateYear" (ngModelChange)="onMonthOrYearChange()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  @for (y of years; track y) {
+                    <option [value]="y">{{ y }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
             </div>
             @if (form.target_purchase_date) {
               <p class="text-xs text-muted-foreground pt-0.5">

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { WishlistItem } from '../../../core/models/wishlist.model';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ShareService } from '../../../core/services/share.service';
 
 @Component({
   selector: 'app-item-card',
@@ -16,7 +17,7 @@ import { ToastService } from '../../../core/services/toast.service';
         <!-- Header -->
         <div class="flex items-center justify-between p-3 border-b border-border/40">
           <div class="flex items-center gap-2.5 min-w-0">
-            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-primary-dark flex items-center justify-center text-primary-foreground font-bold text-xs shrink-0">
+            <div class="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center text-foreground font-bold text-xs shrink-0">
               {{ item.product_name ? item.product_name.charAt(0).toUpperCase() : 'W' }}
             </div>
             <div class="flex flex-col min-w-0">
@@ -39,13 +40,33 @@ import { ToastService } from '../../../core/services/toast.service';
             </button>
 
             @if (showActionsMenu()) {
-              <div class="absolute right-0 mt-1 w-36 bg-card/90 backdrop-blur border border-border rounded-lg shadow-xl py-1 z-20 text-sm">
+              <div class="absolute right-0 mt-1 w-36 bg-card border border-border rounded-lg shadow-card-hover py-1 z-20 text-sm">
                 <button (click)="onEdit($event)" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
                   <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                   </svg>
                   Edit
                 </button>
+                <button (click)="onViewHistory($event)" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6"/>
+                  </svg>
+                  Price History
+                </button>
+                <button (click)="onShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"/>
+                  </svg>
+                  {{ sharing() ? 'Copying link...' : 'Share' }}
+                </button>
+                @if (item.share_token) {
+                  <button (click)="onRegenerateShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                    <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+                    </svg>
+                    Regenerate Link
+                  </button>
+                }
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -81,12 +102,12 @@ import { ToastService } from '../../../core/services/toast.service';
           <!-- Badges -->
           <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
             @if (priceDrop > 0) {
-              <div class="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded shadow">
+              <div class="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-md">
                 -{{ dropPercent }}% OFF
               </div>
             }
             @if (isTargetReached) {
-              <div class="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
+              <div class="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                 TARGET MET
               </div>
             }
@@ -165,7 +186,7 @@ import { ToastService } from '../../../core/services/toast.service';
           @if (item.tags?.length) {
             <div class="flex gap-1.5 flex-wrap my-3">
               @for (tag of item.tags; track tag) {
-                <span class="text-primary text-[10px] font-medium bg-primary/5 px-2 py-0.5 rounded-full hover:bg-primary/10 cursor-pointer">
+                <span (click)="onTagClick($event, tag)" class="text-primary text-[10px] font-medium bg-primary/5 px-2 py-0.5 rounded-full hover:bg-primary/10 cursor-pointer">
                   #{{ tag }}
                 </span>
               }
@@ -271,7 +292,7 @@ import { ToastService } from '../../../core/services/toast.service';
           @if (item.tags?.length) {
             <div class="flex gap-1 flex-wrap mt-1">
               @for (tag of item.tags; track tag) {
-                <span class="text-primary text-[9px] font-medium bg-primary/5 px-1.5 py-0.2 rounded-full">
+                <span (click)="onTagClick($event, tag)" class="text-primary text-[9px] font-medium bg-primary/5 px-1.5 py-0.2 rounded-full cursor-pointer hover:bg-primary/10">
                   #{{ tag }}
                 </span>
               }
@@ -303,7 +324,7 @@ import { ToastService } from '../../../core/services/toast.service';
             </button>
 
             @if (showActionsMenu()) {
-              <div class="absolute right-0 mt-1 w-36 bg-card/90 backdrop-blur border border-border rounded-lg shadow-xl py-1 z-20 text-sm">
+              <div class="absolute right-0 mt-1 w-36 bg-card border border-border rounded-lg shadow-card-hover py-1 z-20 text-sm">
                 <!-- Mobile fallback shortcuts inside 3-dot -->
                 <a [href]="item.product_url" target="_blank" rel="noopener noreferrer" class="flex xs:hidden items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
                   <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -327,6 +348,26 @@ import { ToastService } from '../../../core/services/toast.service';
                   </svg>
                   Edit
                 </button>
+                <button (click)="onViewHistory($event)" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6"/>
+                  </svg>
+                  Price History
+                </button>
+                <button (click)="onShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                  <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"/>
+                  </svg>
+                  {{ sharing() ? 'Copying link...' : 'Share' }}
+                </button>
+                @if (item.share_token) {
+                  <button (click)="onRegenerateShare($event)" [disabled]="sharing()" class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2">
+                    <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"/>
+                    </svg>
+                    Regenerate Link
+                  </button>
+                }
                 <hr class="border-border my-1" />
                 @if (confirmingDelete()) {
                   <div class="px-2 py-1 space-y-1">
@@ -357,12 +398,20 @@ export class ItemCardComponent {
   @Input() viewMode: 'grid' | 'list' = 'grid';
   @Output() edit = new EventEmitter<WishlistItem>();
   @Output() deleted = new EventEmitter<string>();
+  @Output() viewHistory = new EventEmitter<WishlistItem>();
+  @Output() tagClick = new EventEmitter<string>();
 
   showActionsMenu = signal(false);
   confirmingDelete = signal(false);
   hasImgError = signal(false);
 
-  constructor(private wishlistSvc: WishlistService, private toast: ToastService) {}
+  sharing = signal(false);
+
+  constructor(
+    private wishlistSvc: WishlistService,
+    private toast: ToastService,
+    private shareSvc: ShareService,
+  ) {}
 
   get priceDrop(): number { return this.wishlistSvc.getPriceDrop(this.item); }
   get dropPercent(): number { return this.wishlistSvc.getPriceDropPercent(this.item); }
@@ -408,6 +457,50 @@ export class ItemCardComponent {
     e.stopPropagation();
     this.edit.emit(this.item);
     this.showActionsMenu.set(false);
+  }
+
+  onViewHistory(e: MouseEvent) {
+    e.stopPropagation();
+    this.viewHistory.emit(this.item);
+    this.showActionsMenu.set(false);
+  }
+
+  onTagClick(e: MouseEvent, tag: string) {
+    e.stopPropagation();
+    this.tagClick.emit(tag);
+  }
+
+  async onShare(e: MouseEvent) {
+    e.stopPropagation();
+    this.sharing.set(true);
+    const { token, error } = await this.shareSvc.getItemShareToken(this.item);
+    this.sharing.set(false);
+    this.showActionsMenu.set(false);
+    await this.copyItemShareLink(token, error);
+  }
+
+  async onRegenerateShare(e: MouseEvent) {
+    e.stopPropagation();
+    this.sharing.set(true);
+    const { token, error } = await this.shareSvc.regenerateItemShareToken(this.item.id);
+    this.sharing.set(false);
+    this.showActionsMenu.set(false);
+    await this.copyItemShareLink(token, error);
+  }
+
+  private async copyItemShareLink(token: string | null, error: any) {
+    if (error || !token) {
+      this.toast.error('Could not create share link');
+      return;
+    }
+    this.item.share_token = token;
+    const url = `${window.location.origin}/shared/item/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.toast.success('Share link copied to clipboard!');
+    } catch {
+      this.toast.info(`Share link: ${url}`);
+    }
   }
 
   async onDelete(e: MouseEvent) {

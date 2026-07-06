@@ -13,12 +13,14 @@ export class WishlistService {
   private _sortBy = signal<SortBy>('newest');
   private _filterBy = signal<FilterBy>('all');
   private _searchQuery = signal('');
+  private _activeTag = signal<string | null>(null);
 
   items = this._items.asReadonly();
   loading = this._loading.asReadonly();
   sortBy = this._sortBy.asReadonly();
   filterBy = this._filterBy.asReadonly();
   searchQuery = this._searchQuery.asReadonly();
+  activeTag = this._activeTag.asReadonly();
 
   filteredItems = computed(() => {
     let items = [...this._items()];
@@ -32,6 +34,12 @@ export class WishlistService {
         i.description?.toLowerCase().includes(query) ||
         i.tags?.some(t => t.toLowerCase().includes(query))
       );
+    }
+
+    // Active tag filter
+    const activeTag = this._activeTag();
+    if (activeTag) {
+      items = items.filter(i => i.tags?.some(t => t.toLowerCase() === activeTag.toLowerCase()));
     }
 
     // Category filter
@@ -254,6 +262,10 @@ export class WishlistService {
 
   setSearchQuery(query: string): void {
     this._searchQuery.set(query);
+  }
+
+  toggleTag(tag: string): void {
+    this._activeTag.update(current => current === tag ? null : tag);
   }
 
   getPriceDrop(item: WishlistItem): number {
