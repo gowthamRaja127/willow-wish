@@ -432,29 +432,44 @@ import {
               </svg>
             </button>
 
-            <select
-              (change)="onSort($event)"
-              class="input h-9 w-auto rounded-lg px-3 text-sm font-medium cursor-pointer appearance-none"
-            >
-              <option class="bg-card text-foreground" value="newest">
-                Newest
-              </option>
-              <option class="bg-card text-foreground" value="oldest">
-                Oldest
-              </option>
-              <option class="bg-card text-foreground" value="price_asc">
-                Price ↑
-              </option>
-              <option class="bg-card text-foreground" value="price_desc">
-                Price ↓
-              </option>
-              <option class="bg-card text-foreground" value="name">
-                Name A-Z
-              </option>
-              <option class="bg-card text-foreground" value="savings">
-                Most Saved
-              </option>
-            </select>
+            <div class="relative">
+              <select
+                (change)="onSort($event)"
+                class="input h-9 w-auto rounded-lg pl-3 pr-8 text-sm font-medium cursor-pointer appearance-none"
+              >
+                <option class="bg-card text-foreground" value="newest">
+                  Newest
+                </option>
+                <option class="bg-card text-foreground" value="oldest">
+                  Oldest
+                </option>
+                <option class="bg-card text-foreground" value="price_asc">
+                  Price ↑
+                </option>
+                <option class="bg-card text-foreground" value="price_desc">
+                  Price ↓
+                </option>
+                <option class="bg-card text-foreground" value="name">
+                  Name A-Z
+                </option>
+                <option class="bg-card text-foreground" value="savings">
+                  Most Saved
+                </option>
+              </select>
+              <svg
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
