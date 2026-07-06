@@ -1,0 +1,54 @@
+name: WillowWish 3x Daily Check Engine
+on:
+  schedule:
+    - cron: '0 */8 * * *' # Executes precisely every 8 hours
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize Runtime Node environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Create package.json and install dependencies
+        run: |
+          echo '{"dependencies":{"@supabase/supabase-js":"^2","axios":"^1","cheerio":"^1"}}' > package.json
+          npm install
+      - name: Execute Main Scraping System
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const axios = require('axios');
+          
+          async function job() {
+            const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+            const { data: items } = await supabase.from('items').select('*');
+            
+            for (const item of items || []) {
+              try {
+                console.log('Invoking scrape-product edge function for item:', item.id);
+                const fnUrl = \`\${process.env.SUPABASE_URL}/functions/v1/scrape-product\`;
+                await axios.post(fnUrl, {
+                  url: item.product_url,
+                  itemId: item.id,
+                  mode: 'enrich'
+                }, {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': \`Bearer \${process.env.SUPABASE_SERVICE_ROLE_KEY}\`,
+                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY
+                  }
+                });
+              } catch(e) {
+                console.log('Error triggering scraper for item ID:', item.id, e.message);
+              }
+            }
+          }
+          job();
+          "
