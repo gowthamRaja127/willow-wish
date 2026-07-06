@@ -198,6 +198,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, '')
+    const { data: authData, error: authError } = await supabase.auth.getUser(bearerToken)
+    if (authError || !authData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: corsHeaders }
+      )
+    }
+    const callerId = authData.user.id
+
     if (itemId) {
       // 1. Fetch current stored fields to compare
       const { data: existing } = await supabase
@@ -205,6 +216,13 @@ serve(async (req) => {
         .select('user_id, product_name, initial_price, current_price, target_price, is_notified')
         .eq('id', itemId)
         .single()
+
+      if (!existing || existing.user_id !== callerId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: corsHeaders }
+        )
+      }
 
       const patch: Record<string, any> = { last_scraped_at: new Date() }
       if (image)  patch.image_url    = image
@@ -244,6 +262,12 @@ serve(async (req) => {
       
       await supabase.from('items').update(patch).eq('id', itemId)
     } else if (userId) {
+      if (userId !== callerId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: corsHeaders }
+        )
+      }
       // Legacy / Backup
       await supabase.from('items').insert({
         user_id: userId,
