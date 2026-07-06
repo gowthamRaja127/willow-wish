@@ -22,5 +22,9 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
+  {
+    path: 'shared/item/:token',
+    loadComponent: () => import('./features/wishlist/shared-item/shared-item.component').then(m => m.SharedItemComponent)
+  },
   { path: '**', redirectTo: '/auth/login' }
 ];
