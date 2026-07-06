@@ -9,6 +9,8 @@ import { CookieService } from '../../core/services/cookie.service';
 import { ItemCardComponent } from '../wishlist/item-card/item-card.component';
 import { AddItemModalComponent } from '../wishlist/add-item-modal/add-item-modal.component';
 import { PriceHistoryModalComponent } from '../wishlist/price-history-modal/price-history-modal.component';
+import { GroupTileComponent } from '../wishlist/group-tile/group-tile.component';
+import { GroupNameModalComponent } from '../wishlist/group-name-modal/group-name-modal.component';
 import { ShareService } from '../../core/services/share.service';
 import {
   WishlistItem,
@@ -25,6 +27,8 @@ import {
     ItemCardComponent,
     AddItemModalComponent,
     PriceHistoryModalComponent,
+    GroupTileComponent,
+    GroupNameModalComponent,
   ],
   template: `
     <div
@@ -577,15 +581,30 @@ import {
           <!-- Post Stream -->
           @if (!loading() && filteredItems().length > 0) {
             <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'p-4 flex flex-col gap-4'">
-              @for (item of filteredItems(); track item.id) {
-                <app-item-card
-                  [item]="item"
-                  [viewMode]="viewMode()"
-                  (edit)="onEditItem($event)"
-                  (deleted)="onDeleted($event)"
-                  (viewHistory)="onViewHistory($event)"
-                  (tagClick)="onTagClick($event)"
-                />
+              @for (tile of wishlistSvc.tiles(); track tile.type === 'item' ? tile.item.id : tile.group.id) {
+                @if (tile.type === 'item') {
+                  <app-item-card
+                    [item]="tile.item"
+                    [viewMode]="viewMode()"
+                    (edit)="onEditItem($event)"
+                    (deleted)="onDeleted($event)"
+                    (viewHistory)="onViewHistory($event)"
+                    (tagClick)="onTagClick($event)"
+                    (droppedItemId)="onDroppedOnItem($event, tile.item)"
+                  />
+                } @else {
+                  <app-group-tile
+                    [group]="tile.group"
+                    [items]="tile.items"
+                    [viewMode]="viewMode()"
+                    (edit)="onEditItem($event)"
+                    (deleted)="onDeleted($event)"
+                    (viewHistory)="onViewHistory($event)"
+                    (tagClick)="onTagClick($event)"
+                    (removeFromGroup)="onRemoveFromGroup($event)"
+                    (droppedOnGroup)="onDroppedOnGroup($event, tile.group.id)"
+                  />
+                }
               }
             </div>
           }
@@ -606,6 +625,14 @@ import {
         <app-price-history-modal
           [itemId]="historyItemId()!"
           (close)="historyItemId.set(null)"
+        />
+      }
+
+      <!-- Group Name Modal -->
+      @if (pendingGroupItemIds()) {
+        <app-group-name-modal
+          (confirmed)="onGroupNameConfirmed($event)"
+          (close)="pendingGroupItemIds.set(null)"
         />
       }
 
@@ -662,6 +689,7 @@ export class DashboardComponent implements OnInit {
   showAddModal = signal(false);
   editingItem = signal<WishlistItem | null>(null);
   historyItemId = signal<string | null>(null);
+  pendingGroupItemIds = signal<[string, string] | null>(null);
   sharingWishlist = signal(false);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
@@ -716,6 +744,7 @@ export class DashboardComponent implements OnInit {
     });
 
     await this.wishlistSvc.loadItems();
+    await this.wishlistSvc.loadGroups();
   }
 
   async saveWhatsappNumber() {
@@ -774,6 +803,36 @@ export class DashboardComponent implements OnInit {
 
   onTagClick(tag: string) {
     this.wishlistSvc.toggleTag(tag);
+  }
+
+  onDroppedOnItem(draggedId: string, targetItem: WishlistItem) {
+    if (targetItem.group_id) {
+      this.wishlistSvc.addToGroup(targetItem.group_id, [draggedId]).then(({ error }) => {
+        if (error) this.toastSvc.error('Could not add to group');
+      });
+      return;
+    }
+    this.pendingGroupItemIds.set([draggedId, targetItem.id]);
+  }
+
+  onDroppedOnGroup(draggedId: string, groupId: string) {
+    this.wishlistSvc.addToGroup(groupId, [draggedId]).then(({ error }) => {
+      if (error) this.toastSvc.error('Could not add to group');
+    });
+  }
+
+  async onGroupNameConfirmed(name: string) {
+    const ids = this.pendingGroupItemIds();
+    this.pendingGroupItemIds.set(null);
+    if (!ids) return;
+    const { error } = await this.wishlistSvc.createGroup(name, ids);
+    if (error) this.toastSvc.error('Could not create group');
+    else this.toastSvc.success(`Grouped into "${name}"`);
+  }
+
+  async onRemoveFromGroup(itemId: string) {
+    const { error } = await this.wishlistSvc.removeFromGroup(itemId);
+    if (error) this.toastSvc.error('Could not remove from group');
   }
 
   async onShareWishlist() {

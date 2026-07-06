@@ -3,8 +3,12 @@ import { SupabaseService } from './supabase.service';
 import { environment } from '../../../environments/environment';
 import {
   WishlistItem, AddItemPayload, UpdateItemPayload,
-  PriceHistoryEntry, WishlistStats, SortBy, FilterBy
+  PriceHistoryEntry, WishlistStats, SortBy, FilterBy, ItemGroup
 } from '../models/wishlist.model';
+
+export type WishlistTile =
+  | { type: 'item'; item: WishlistItem }
+  | { type: 'group'; group: ItemGroup; items: WishlistItem[] };
 
 @Injectable({ providedIn: 'root' })
 export class WishlistService {
@@ -14,6 +18,7 @@ export class WishlistService {
   private _filterBy = signal<FilterBy>('all');
   private _searchQuery = signal('');
   private _activeTag = signal<string | null>(null);
+  private _groups = signal<ItemGroup[]>([]);
 
   items = this._items.asReadonly();
   loading = this._loading.asReadonly();
@@ -21,6 +26,7 @@ export class WishlistService {
   filterBy = this._filterBy.asReadonly();
   searchQuery = this._searchQuery.asReadonly();
   activeTag = this._activeTag.asReadonly();
+  groups = this._groups.asReadonly();
 
   filteredItems = computed(() => {
     let items = [...this._items()];
@@ -103,6 +109,31 @@ export class WishlistService {
     };
   });
 
+  tiles = computed<WishlistTile[]>(() => {
+    const filtered = this.filteredItems();
+    const allItems = this._items();
+    const groups = this._groups();
+    const seenGroups = new Set<string>();
+    const result: WishlistTile[] = [];
+
+    for (const item of filtered) {
+      if (item.group_id) {
+        if (seenGroups.has(item.group_id)) continue;
+        seenGroups.add(item.group_id);
+        const group = groups.find(g => g.id === item.group_id);
+        if (!group) {
+          result.push({ type: 'item', item });
+          continue;
+        }
+        const members = allItems.filter(i => i.group_id === item.group_id);
+        result.push({ type: 'group', group, items: members });
+      } else {
+        result.push({ type: 'item', item });
+      }
+    }
+    return result;
+  });
+
   constructor(private sb: SupabaseService) {}
 
   async loadItems(): Promise<void> {
@@ -121,6 +152,100 @@ export class WishlistService {
       this._items.set(data ?? []);
     } finally {
       this._loading.set(false);
+    }
+  }
+
+  async loadGroups(): Promise<void> {
+    const user = this.sb.currentUser;
+    if (!user) return;
+
+    const { data, error } = await this.sb.client
+      .from('item_groups')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) return;
+    this._groups.set(data ?? []);
+  }
+
+  async createGroup(name: string, itemIds: string[]): Promise<{ error: any }> {
+    const user = this.sb.currentUser;
+    if (!user) return { error: new Error('Not authenticated') };
+
+    try {
+      const { data: group, error: groupError } = await this.sb.client
+        .from('item_groups')
+        .insert({ user_id: user.id, name })
+        .select()
+        .single();
+
+      if (groupError) throw groupError;
+
+      const { error: itemsError } = await this.sb.client
+        .from('items')
+        .update({ group_id: group.id })
+        .in('id', itemIds);
+
+      if (itemsError) throw itemsError;
+
+      this._groups.update(groups => [group, ...groups]);
+      this._items.update(items =>
+        items.map(i => itemIds.includes(i.id) ? { ...i, group_id: group.id } : i)
+      );
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
+
+  async addToGroup(groupId: string, itemIds: string[]): Promise<{ error: any }> {
+    try {
+      const { error } = await this.sb.client
+        .from('items')
+        .update({ group_id: groupId })
+        .in('id', itemIds);
+
+      if (error) throw error;
+      this._items.update(items =>
+        items.map(i => itemIds.includes(i.id) ? { ...i, group_id: groupId } : i)
+      );
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
+
+  async removeFromGroup(itemId: string): Promise<{ error: any }> {
+    try {
+      const item = this._items().find(i => i.id === itemId);
+      const groupId = item?.group_id;
+      if (!groupId) return { error: null };
+
+      const { error } = await this.sb.client
+        .from('items')
+        .update({ group_id: null })
+        .eq('id', itemId);
+
+      if (error) throw error;
+      this._items.update(items =>
+        items.map(i => i.id === itemId ? { ...i, group_id: null } : i)
+      );
+
+      const remaining = this._items().filter(i => i.group_id === groupId);
+      if (remaining.length <= 1) {
+        for (const r of remaining) {
+          await this.sb.client.from('items').update({ group_id: null }).eq('id', r.id);
+        }
+        await this.sb.client.from('item_groups').delete().eq('id', groupId);
+        this._items.update(items =>
+          items.map(i => i.group_id === groupId ? { ...i, group_id: null } : i)
+        );
+        this._groups.update(groups => groups.filter(g => g.id !== groupId));
+      }
+      return { error: null };
+    } catch (error) {
+      return { error };
     }
   }
 

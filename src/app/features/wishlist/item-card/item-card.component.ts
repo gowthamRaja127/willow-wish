@@ -13,7 +13,13 @@ import { ShareService } from '../../../core/services/share.service';
   template: `
     <!-- ── GRID VIEW CARD ── -->
     @if (viewMode === 'grid') {
-      <div class="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full relative group">
+      <div
+        class="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full relative group"
+        draggable="true"
+        (dragstart)="onDragStart($event)"
+        (dragover)="onDragOver($event)"
+        (drop)="onDrop($event)"
+      >
         <!-- Header -->
         <div class="flex items-center justify-between p-3 border-b border-border/40">
           <div class="flex items-center gap-2.5 min-w-0">
@@ -218,7 +224,13 @@ import { ShareService } from '../../../core/services/share.service';
       </div>
     } @else {
       <!-- ── LIST VIEW ROW ── -->
-      <div class="bg-card border border-border rounded-xl p-3 flex items-center gap-4 w-full relative group">
+      <div
+        class="bg-card border border-border rounded-xl p-3 flex items-center gap-4 w-full relative group"
+        draggable="true"
+        (dragstart)="onDragStart($event)"
+        (dragover)="onDragOver($event)"
+        (drop)="onDrop($event)"
+      >
         <!-- Thumbnail -->
         <div class="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted/30 rounded-lg overflow-hidden shrink-0 flex items-center justify-center border border-border/40">
           @if (item.image_url && !hasImgError()) {
@@ -406,6 +418,7 @@ export class ItemCardComponent {
   @Output() deleted = new EventEmitter<string>();
   @Output() viewHistory = new EventEmitter<WishlistItem>();
   @Output() tagClick = new EventEmitter<string>();
+  @Output() droppedItemId = new EventEmitter<string>();
 
   showActionsMenu = signal(false);
   confirmingDelete = signal(false);
@@ -442,6 +455,23 @@ export class ItemCardComponent {
 
   onImgError(e: Event) {
     this.hasImgError.set(true);
+  }
+
+  onDragStart(e: DragEvent): void {
+    e.dataTransfer?.setData('text/plain', this.item.id);
+  }
+
+  onDragOver(e: DragEvent): void {
+    e.preventDefault();
+  }
+
+  onDrop(e: DragEvent): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const draggedId = e.dataTransfer?.getData('text/plain');
+    if (draggedId && draggedId !== this.item.id) {
+      this.droppedItemId.emit(draggedId);
+    }
   }
 
   toggleActionsMenu(e: MouseEvent) {

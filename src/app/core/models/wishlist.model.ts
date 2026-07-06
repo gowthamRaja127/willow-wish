@@ -20,6 +20,14 @@ export interface WishlistItem {
   notes?: string | null;
   share_token?: string | null;
   is_deleted?: boolean;
+  group_id?: string | null;
+}
+
+export interface ItemGroup {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
 }
 
 export interface PriceHistoryEntry {
