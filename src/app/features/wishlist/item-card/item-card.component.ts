@@ -16,7 +16,7 @@ import { ToastService } from '../../../core/services/toast.service';
         <!-- Header -->
         <div class="flex items-center justify-between p-3 border-b border-border/40">
           <div class="flex items-center gap-2.5 min-w-0">
-            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-primary-dark flex items-center justify-center text-primary-foreground font-bold text-xs shrink-0">
+            <div class="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center text-foreground font-bold text-xs shrink-0">
               {{ item.product_name ? item.product_name.charAt(0).toUpperCase() : 'W' }}
             </div>
             <div class="flex flex-col min-w-0">
@@ -81,12 +81,12 @@ import { ToastService } from '../../../core/services/toast.service';
           <!-- Badges -->
           <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
             @if (priceDrop > 0) {
-              <div class="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded shadow">
+              <div class="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-md">
                 -{{ dropPercent }}% OFF
               </div>
             }
             @if (isTargetReached) {
-              <div class="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
+              <div class="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                 TARGET MET
               </div>
             }
