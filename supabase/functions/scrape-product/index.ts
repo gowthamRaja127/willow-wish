@@ -253,11 +253,16 @@ serve(async (req) => {
       if (desc && !existing?.description)   patch.description  = desc
 
       if (price > 0) {
+        const isNewPricePoint = existing?.current_price == null || price !== existing.current_price
         patch.current_price = price
-        
+
         // If initial price is not set, set it now
         if (!existing?.initial_price) {
           patch.initial_price = price;
+        }
+
+        if (isNewPricePoint) {
+          await supabase.from('price_history').insert({ item_id: itemId, price })
         }
 
         // Compare price change
