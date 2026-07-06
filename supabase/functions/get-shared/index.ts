@@ -28,6 +28,7 @@ serve(async (req) => {
         .from('items')
         .select(SHARED_ITEM_FIELDS)
         .eq('share_token', token)
+        .eq('is_deleted', false)
         .single()
 
       if (error || !data) {
@@ -53,6 +54,7 @@ serve(async (req) => {
       .from('items')
       .select(SHARED_ITEM_FIELDS)
       .eq('user_id', share.user_id)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
 
     if (itemsError) throw itemsError

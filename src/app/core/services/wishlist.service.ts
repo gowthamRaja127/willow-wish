@@ -115,6 +115,7 @@ export class WishlistService {
         .from('items')
         .select('*')
         .eq('user_id', user.id)
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -224,7 +225,7 @@ export class WishlistService {
     try {
       const { error } = await this.sb.client
         .from('items')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', id);
 
       if (error) throw error;

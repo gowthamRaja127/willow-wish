@@ -28,7 +28,7 @@ jobs:
           
           async function job() {
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-            const { data: items } = await supabase.from('items').select('*');
+            const { data: items } = await supabase.from('items').select('*').eq('is_deleted', false);
             
             for (const item of items || []) {
               try {
