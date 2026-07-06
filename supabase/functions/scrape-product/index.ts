@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom/deno-dom-wasm.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+declare const Deno: any;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -217,7 +219,7 @@ serve(async (req) => {
         .eq('id', itemId)
         .single()
 
-      const patch: Record<string, any> = { last_scraped_at: new Date() }
+      const patch: any = { last_scraped_at: new Date() }
       if (image)  patch.image_url    = image
       if (title && !existing?.product_name)  patch.product_name = title
       if (desc && !existing?.description)   patch.description  = desc
