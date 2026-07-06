@@ -18,6 +18,7 @@ export interface WishlistItem {
   is_purchased?: boolean;
   purchased_at?: string | null;
   notes?: string | null;
+  share_token?: string | null;
 }
 
 export interface PriceHistoryEntry {
