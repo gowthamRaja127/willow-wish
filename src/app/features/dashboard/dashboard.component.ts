@@ -388,6 +388,17 @@ import {
         <div
           class="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
         >
+          @if (activeTag()) {
+            <button
+              (click)="wishlistSvc.toggleTag(activeTag()!)"
+              class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
+            >
+              #{{ activeTag() }}
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          }
           <div class="flex-1 relative max-w-sm">
             <svg
               class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
@@ -539,6 +550,7 @@ import {
                   (edit)="onEditItem($event)"
                   (deleted)="onDeleted($event)"
                   (viewHistory)="onViewHistory($event)"
+                  (tagClick)="onTagClick($event)"
                 />
               }
             </div>
@@ -636,6 +648,9 @@ export class DashboardComponent implements OnInit {
   get filterBy() {
     return this.wishlistSvc.filterBy;
   }
+  get activeTag() {
+    return this.wishlistSvc.activeTag;
+  }
 
   userEmail() {
     return this.sb.currentUser?.email ?? '';
@@ -713,6 +728,10 @@ export class DashboardComponent implements OnInit {
 
   onViewHistory(item: WishlistItem) {
     this.historyItemId.set(item.id);
+  }
+
+  onTagClick(tag: string) {
+    this.wishlistSvc.toggleTag(tag);
   }
 
   onDeleted(_id: string) {}

@@ -171,7 +171,7 @@ import { ToastService } from '../../../core/services/toast.service';
           @if (item.tags?.length) {
             <div class="flex gap-1.5 flex-wrap my-3">
               @for (tag of item.tags; track tag) {
-                <span class="text-primary text-[10px] font-medium bg-primary/5 px-2 py-0.5 rounded-full hover:bg-primary/10 cursor-pointer">
+                <span (click)="onTagClick($event, tag)" class="text-primary text-[10px] font-medium bg-primary/5 px-2 py-0.5 rounded-full hover:bg-primary/10 cursor-pointer">
                   #{{ tag }}
                 </span>
               }
@@ -277,7 +277,7 @@ import { ToastService } from '../../../core/services/toast.service';
           @if (item.tags?.length) {
             <div class="flex gap-1 flex-wrap mt-1">
               @for (tag of item.tags; track tag) {
-                <span class="text-primary text-[9px] font-medium bg-primary/5 px-1.5 py-0.2 rounded-full">
+                <span (click)="onTagClick($event, tag)" class="text-primary text-[9px] font-medium bg-primary/5 px-1.5 py-0.2 rounded-full cursor-pointer hover:bg-primary/10">
                   #{{ tag }}
                 </span>
               }
@@ -370,6 +370,7 @@ export class ItemCardComponent {
   @Output() edit = new EventEmitter<WishlistItem>();
   @Output() deleted = new EventEmitter<string>();
   @Output() viewHistory = new EventEmitter<WishlistItem>();
+  @Output() tagClick = new EventEmitter<string>();
 
   showActionsMenu = signal(false);
   confirmingDelete = signal(false);
@@ -426,6 +427,11 @@ export class ItemCardComponent {
     e.stopPropagation();
     this.viewHistory.emit(this.item);
     this.showActionsMenu.set(false);
+  }
+
+  onTagClick(e: MouseEvent, tag: string) {
+    e.stopPropagation();
+    this.tagClick.emit(tag);
   }
 
   async onDelete(e: MouseEvent) {
