@@ -8,6 +8,10 @@ import { ToastService } from '../../core/services/toast.service';
 import { CookieService } from '../../core/services/cookie.service';
 import { ItemCardComponent } from '../wishlist/item-card/item-card.component';
 import { AddItemModalComponent } from '../wishlist/add-item-modal/add-item-modal.component';
+import { PriceHistoryModalComponent } from '../wishlist/price-history-modal/price-history-modal.component';
+import { GroupTileComponent } from '../wishlist/group-tile/group-tile.component';
+import { GroupNameModalComponent } from '../wishlist/group-name-modal/group-name-modal.component';
+import { ShareService } from '../../core/services/share.service';
 import {
   WishlistItem,
   SortBy,
@@ -22,6 +26,9 @@ import {
     FormsModule,
     ItemCardComponent,
     AddItemModalComponent,
+    PriceHistoryModalComponent,
+    GroupTileComponent,
+    GroupNameModalComponent,
   ],
   template: `
     <div
@@ -175,6 +182,71 @@ import {
             </svg>
             <span class="hidden lg:block text-base font-bold">Add Item</span>
           </button>
+
+          <button
+            (click)="showQuickAdd.set(true)"
+            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors text-primary"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            <span class="hidden lg:block text-base font-bold">Quick Add</span>
+          </button>
+
+          <div class="flex items-center gap-1">
+            <button
+              (click)="onShareWishlist()"
+              [disabled]="sharingWishlist()"
+              class="flex items-center gap-4 p-3 flex-1 rounded-lg hover:bg-muted/50 transition-colors"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
+                />
+              </svg>
+              <span class="hidden lg:block text-base text-left">{{
+                sharingWishlist() ? 'Copying...' : 'Share'
+              }}</span>
+            </button>
+            <button
+              (click)="onRegenerateWishlistShare()"
+              [disabled]="sharingWishlist()"
+              title="Regenerate wishlist share link"
+              class="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"
+                />
+              </svg>
+            </button>
+          </div>
         </nav>
 
         <div class="mt-auto pt-4 border-t border-border">
@@ -286,44 +358,36 @@ import {
       </nav>
 
       <!-- Main Content -->
-      <main
-        class="flex-1 w-full max-w-4xl mx-auto border-x border-border min-h-screen bg-background"
-      >
+      <main class="flex-1 w-full min-h-screen bg-background">
         <!-- Header: Profile-like stats -->
         <header
           class="p-6 md:p-10 border-b border-border flex flex-row items-center gap-6 sm:gap-10"
         >
           <div
-            class="w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-primary-dark to-primary flex items-center justify-center text-3xl sm:text-5xl font-bold text-primary-foreground shrink-0 border-2 border-primary-dark shadow-glow-lg"
+            class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted border border-border flex items-center justify-center text-3xl sm:text-4xl font-bold text-foreground shrink-0"
           >
             {{ userInitial() }}
           </div>
           <div class="flex-1 flex flex-col gap-3">
             <div class="flex items-center gap-4">
               <h1 class="text-xl sm:text-2xl font-semibold">
-                {{ userEmail() }}
+                {{ userDisplayName() }}
               </h1>
               <button
                 (click)="toggleDark()"
-                class="btn-secondary btn-sm rounded-full hidden sm:flex"
+                class="btn-secondary btn-sm rounded-lg hidden sm:flex items-center justify-center"
+                [attr.title]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
               >
-                Theme
+                @if (isDark()) {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1.5m0 15V21m8.485-8.485h-1.5m-15 0H3m14.849 6.349-1.061-1.06M6.213 6.211l-1.06-1.06m12.727 0-1.06 1.06M6.213 17.788l-1.06 1.06M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                  </svg>
+                } @else {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+                  </svg>
+                }
               </button>
-            </div>
-            <div class="flex items-center gap-6 text-sm sm:text-base">
-              <div>
-                <span class="font-bold text-lg">{{ stats().total }}</span> items
-              </div>
-              <div>
-                <span class="font-bold text-lg">{{ stats().priceDrop }}</span>
-                drops
-              </div>
-              <div>
-                <span class="font-bold text-lg"
-                  >₹{{ stats().totalSavings | number: '1.0-0' }}</span
-                >
-                saved
-              </div>
             </div>
             <div class="text-sm text-muted-foreground hidden sm:block">
               Organizing your wishes and catching price drops before they're
@@ -331,8 +395,58 @@ import {
             </div>
             <!-- WhatsApp Updates Config -->
             <div class="flex items-center gap-2 mt-1 max-w-sm hidden sm:flex">
-              <span class="text-xs text-muted-foreground whitespace-nowrap">WhatsApp No:</span>
-              <div class="flex items-center gap-1.5 flex-1">
+              <span class="text-xs text-muted-foreground whitespace-nowrap"
+                >WhatsApp No:</span
+              >
+              @if (editingWhatsapp()) {
+                <div class="flex items-center gap-1.5 flex-1">
+                  <input
+                    type="text"
+                    placeholder="e.g. +919876543210"
+                    [(ngModel)]="whatsappNumber"
+                    class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
+                  />
+                  <button
+                    (click)="saveWhatsappNumber()"
+                    class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
+                    [disabled]="savingWhatsapp()"
+                  >
+                    {{ savingWhatsapp() ? '...' : 'Save' }}
+                  </button>
+                </div>
+              } @else {
+                <div class="flex items-center gap-1.5 flex-1">
+                  <span class="text-xs font-mono text-foreground">{{ maskedWhatsapp() }}</span>
+                  <button
+                    (click)="editingWhatsapp.set(true)"
+                    class="p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
+                    title="Edit WhatsApp number"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.06 2.06 0 1 1 2.914 2.914L7.5 19.674l-4 1 1-4L16.862 4.487Z" />
+                    </svg>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        </header>
+
+        <!-- Mobile bio & settings -->
+        <div
+          class="p-4 text-sm text-muted-foreground sm:hidden border-b border-border space-y-3"
+        >
+          <div>
+            Organizing your wishes and catching price drops before they're gone.
+            ✨
+          </div>
+
+          <div class="flex flex-col gap-1.5 pt-2 border-t border-border/40">
+            <span class="text-xs text-muted-foreground font-medium"
+              >WhatsApp Updates:</span
+            >
+            @if (editingWhatsapp()) {
+              <div class="flex items-center gap-1.5">
                 <input
                   type="text"
                   placeholder="e.g. +919876543210"
@@ -347,40 +461,76 @@ import {
                   {{ savingWhatsapp() ? '...' : 'Save' }}
                 </button>
               </div>
-            </div>
-          </div>
-        </header>
-
-        <!-- Mobile bio & settings -->
-        <div
-          class="p-4 text-sm text-muted-foreground sm:hidden border-b border-border space-y-3"
-        >
-          <div>Organizing your wishes and catching price drops before they're gone. ✨</div>
-          
-          <div class="flex flex-col gap-1.5 pt-2 border-t border-border/40">
-            <span class="text-xs text-muted-foreground font-medium">WhatsApp Updates:</span>
-            <div class="flex items-center gap-1.5">
-              <input
-                type="text"
-                placeholder="e.g. +919876543210"
-                [(ngModel)]="whatsappNumber"
-                class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
-              />
-              <button
-                (click)="saveWhatsappNumber()"
-                class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
-                [disabled]="savingWhatsapp()"
-              >
-                {{ savingWhatsapp() ? '...' : 'Save' }}
-              </button>
-            </div>
+            } @else {
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-mono text-foreground">{{ maskedWhatsapp() }}</span>
+                <button
+                  (click)="editingWhatsapp.set(true)"
+                  class="p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
+                  title="Edit WhatsApp number"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.06 2.06 0 1 1 2.914 2.914L7.5 19.674l-4 1 1-4L16.862 4.487Z" />
+                  </svg>
+                </button>
+              </div>
+            }
           </div>
         </div>
 
-        <!-- Search & Sort (Instagram Stories-like bar or clean toolbar) -->
+        <!-- Stat tiles -->
+        <div class="grid grid-cols-4 gap-3 p-4 border-b border-border">
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">
+              {{ stats().total }}
+            </div>
+            <div class="text-xs text-muted-foreground">Items</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">
+              {{ stats().priceDrop }}
+            </div>
+            <div class="text-xs text-muted-foreground">Drops</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">
+              ₹{{ stats().totalSavings | number: '1.0-0' }}
+            </div>
+            <div class="text-xs text-muted-foreground">Saved</div>
+          </div>
+          <div class="rounded-lg border border-border p-3">
+            <div class="text-lg font-bold text-foreground">
+              {{ stats().purchased }}
+            </div>
+            <div class="text-xs text-muted-foreground">Purchased</div>
+          </div>
+        </div>
+
+        <!-- Search & Sort -->
         <div
           class="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
         >
+          @if (activeTag()) {
+            <button
+              (click)="wishlistSvc.toggleTag(activeTag()!)"
+              class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
+            >
+              #{{ activeTag() }}
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          }
           <div class="flex-1 relative max-w-sm">
             <svg
               class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
@@ -400,54 +550,67 @@ import {
               [(ngModel)]="searchQuery"
               (input)="onSearch()"
               placeholder="Search wishlist..."
-              class="input pl-9 h-9 bg-muted/50 border-none rounded-full"
+              class="input pl-9 h-9 rounded-lg"
             />
           </div>
           <div class="flex items-center gap-2">
             <!-- Grid Layout Toggle -->
             <button
               (click)="setViewMode('grid')"
-              [class]="viewMode() === 'grid' ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30' : 'p-2 rounded-full hover:bg-muted text-muted-foreground'"
+              [class]="
+                viewMode() === 'grid'
+                  ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30'
+                  : 'p-2 rounded-full hover:bg-muted text-muted-foreground'
+              "
               title="Grid View"
             >
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
+                <path
+                  d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"
+                />
               </svg>
             </button>
             <!-- List Layout Toggle -->
             <button
               (click)="setViewMode('list')"
-              [class]="viewMode() === 'list' ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30' : 'p-2 rounded-full hover:bg-muted text-muted-foreground'"
+              [class]="
+                viewMode() === 'list'
+                  ? 'p-2 rounded-full bg-primary/20 text-primary border border-primary/30'
+                  : 'p-2 rounded-full hover:bg-muted text-muted-foreground'
+              "
               title="List View"
             >
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
               </svg>
             </button>
 
-            <select
-              (change)="onSort($event)"
-              class="glass rounded-full px-4 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground font-medium cursor-pointer appearance-none shadow-sm transition-all hover:bg-card/90"
-            >
-              <option class="bg-card text-foreground" value="newest">
-                Newest
-              </option>
-              <option class="bg-card text-foreground" value="oldest">
-                Oldest
-              </option>
-              <option class="bg-card text-foreground" value="price_asc">
-                Price ↑
-              </option>
-              <option class="bg-card text-foreground" value="price_desc">
-                Price ↓
-              </option>
-              <option class="bg-card text-foreground" value="name">
-                Name A-Z
-              </option>
-              <option class="bg-card text-foreground" value="savings">
-                Most Saved
-              </option>
-            </select>
+            <div class="relative">
+              <select
+                (change)="onSort($event)"
+                class="input h-9 w-auto rounded-lg pl-3 pr-8 text-sm font-medium cursor-pointer appearance-none"
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="price_asc">Price ↑</option>
+                <option value="price_desc">Price ↓</option>
+                <option value="name">Name A-Z</option>
+                <option value="savings">Most Saved</option>
+              </select>
+              <svg
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -455,15 +618,17 @@ import {
         <div class="bg-card">
           <!-- Loading -->
           @if (loading()) {
-            <div class="space-y-6 py-6">
-              @for (i of [1, 2, 3]; track i) {
-                <div class="max-w-lg mx-auto border-b border-border pb-6">
+            <div
+              class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            >
+              @for (i of [1, 2, 3, 4, 5]; track i) {
+                <div class="border border-border rounded-xl overflow-hidden">
                   <div class="flex items-center gap-3 p-3">
                     <div class="shimmer w-8 h-8 rounded-full"></div>
-                    <div class="shimmer w-32 h-4 rounded"></div>
+                    <div class="shimmer w-20 h-4 rounded"></div>
                   </div>
                   <div class="shimmer w-full aspect-square"></div>
-                  <div class="p-4 space-y-3">
+                  <div class="p-3.5 space-y-3">
                     <div class="shimmer h-4 w-3/4 rounded"></div>
                     <div class="shimmer h-3 w-1/2 rounded"></div>
                   </div>
@@ -490,33 +655,57 @@ import {
                     stroke-linecap="round"
                     stroke-linejoin="round"
                     stroke-width="1.5"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                    [attr.d]="emptyStateIcon"
                   />
                 </svg>
               </div>
               <h3 class="text-xl font-semibold mb-2">
-                {{ searchQuery ? 'No results found' : 'No items yet' }}
+                {{ emptyStateTitle }}
               </h3>
               <p class="text-muted-foreground text-sm max-w-xs mb-6">
-                {{
-                  searchQuery
-                    ? 'Try changing your search terms.'
-                    : 'When you add items to your wishlist, they will appear here.'
-                }}
+                {{ emptyStateSubtitle }}
               </p>
             </div>
           }
 
           <!-- Post Stream -->
           @if (!loading() && filteredItems().length > 0) {
-            <div [class]="viewMode() === 'grid' ? 'p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'p-4 flex flex-col gap-4'">
-              @for (item of filteredItems(); track item.id) {
-                <app-item-card
-                  [item]="item"
-                  [viewMode]="viewMode()"
-                  (edit)="onEditItem($event)"
-                  (deleted)="onDeleted($event)"
-                />
+            <div
+              [class]="
+                viewMode() === 'grid'
+                  ? 'p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
+                  : 'p-4 flex flex-col gap-4'
+              "
+              (dragover)="onGridDragOver($event)"
+              (drop)="onGridDrop($event)"
+            >
+              @for (
+                tile of wishlistSvc.tiles();
+                track tile.type === 'item' ? tile.item.id : tile.group.id
+              ) {
+                @if (tile.type === 'item') {
+                  <app-item-card
+                    [item]="tile.item"
+                    [viewMode]="viewMode()"
+                    (edit)="onEditItem($event)"
+                    (deleted)="onDeleted($event)"
+                    (viewHistory)="onViewHistory($event)"
+                    (tagClick)="onTagClick($event)"
+                    (droppedItemId)="onDroppedOnItem($event, tile.item)"
+                  />
+                } @else {
+                  <app-group-tile
+                    [group]="tile.group"
+                    [items]="tile.items"
+                    [viewMode]="viewMode()"
+                    (edit)="onEditItem($event)"
+                    (deleted)="onDeleted($event)"
+                    (viewHistory)="onViewHistory($event)"
+                    (tagClick)="onTagClick($event)"
+                    (removeFromGroup)="onRemoveFromGroup($event)"
+                    (droppedOnGroup)="onDroppedOnGroup($event, tile.group.id)"
+                  />
+                }
               }
             </div>
           }
@@ -532,6 +721,63 @@ import {
         />
       }
 
+      <!-- Price History Modal -->
+      @if (historyItemId()) {
+        <app-price-history-modal
+          [itemId]="historyItemId()!"
+          (close)="historyItemId.set(null)"
+        />
+      }
+
+      <!-- Group Name Modal -->
+      @if (pendingGroupItemIds()) {
+        <app-group-name-modal
+          (confirmed)="onGroupNameConfirmed($event)"
+          (close)="pendingGroupItemIds.set(null)"
+        />
+      }
+
+      <!-- Quick Add Modal -->
+      @if (showQuickAdd()) {
+        <div class="modal-overlay" (click)="showQuickAdd.set(false)">
+          <div
+            class="modal-content max-w-sm"
+            (click)="$event.stopPropagation()"
+          >
+            <h2 class="text-lg font-display font-bold text-foreground mb-4">
+              Quick Add
+            </h2>
+            <form (ngSubmit)="onQuickAdd()">
+              <input
+                type="url"
+                [(ngModel)]="quickAddUrl"
+                name="quickAddUrl"
+                placeholder="Paste a product link"
+                class="input mb-4"
+                [disabled]="quickAdding()"
+                required
+              />
+              <div class="flex gap-3">
+                <button
+                  type="button"
+                  (click)="showQuickAdd.set(false)"
+                  class="btn-secondary btn-md flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="btn-primary btn-md flex-1"
+                  [disabled]="!quickAddUrl || quickAdding()"
+                >
+                  {{ quickAdding() ? 'Adding...' : 'Add' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+
       <!-- Toasts -->
       <div class="fixed bottom-20 md:bottom-6 right-6 z-[100] space-y-2">
         @for (toast of toastSvc.toasts(); track toast.id) {
@@ -542,13 +788,49 @@ import {
             [class.toast-info]="toast.type === 'info'"
           >
             @if (toast.type === 'success') {
-              <span>✅</span>
+              <svg
+                class="w-4 h-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
             }
             @if (toast.type === 'error') {
-              <span>❌</span>
+              <svg
+                class="w-4 h-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 9v3.75m0 3.75h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
             }
             @if (toast.type === 'info') {
-              <span>ℹ️</span>
+              <svg
+                class="w-4 h-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                />
+              </svg>
             }
             {{ toast.message }}
             <button
@@ -578,11 +860,18 @@ import {
 export class DashboardComponent implements OnInit {
   showAddModal = signal(false);
   editingItem = signal<WishlistItem | null>(null);
+  historyItemId = signal<string | null>(null);
+  pendingGroupItemIds = signal<[string, string] | null>(null);
+  showQuickAdd = signal(false);
+  quickAdding = signal(false);
+  quickAddUrl = '';
+  sharingWishlist = signal(false);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
   searchQuery = '';
   whatsappNumber = '';
   savingWhatsapp = signal(false);
+  editingWhatsapp = signal(false);
 
   constructor(
     public wishlistSvc: WishlistService,
@@ -590,6 +879,7 @@ export class DashboardComponent implements OnInit {
     private sb: SupabaseService,
     private router: Router,
     private cookieSvc: CookieService,
+    private shareSvc: ShareService,
   ) {}
 
   get filteredItems() {
@@ -604,12 +894,80 @@ export class DashboardComponent implements OnInit {
   get filterBy() {
     return this.wishlistSvc.filterBy;
   }
+  get activeTag() {
+    return this.wishlistSvc.activeTag;
+  }
 
   userEmail() {
     return this.sb.currentUser?.email ?? '';
   }
+  userDisplayName(): string {
+    const local = this.userEmail().split('@')[0] || '';
+    const name = local
+      .split(/\d+/)
+      .filter(Boolean)
+      .join(' ');
+    if (!name) return this.userEmail();
+    return name
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
   userInitial() {
-    return this.userEmail().charAt(0).toUpperCase();
+    return this.userDisplayName().charAt(0).toUpperCase();
+  }
+  maskedWhatsapp(): string {
+    const num = this.whatsappNumber?.trim() || '';
+    if (!num) return 'Not set';
+    if (num.length <= 4) return '*'.repeat(num.length);
+    const first = num.slice(0, 2);
+    const last = num.slice(-2);
+    const middle = '*'.repeat(num.length - 4);
+    return `${first}${middle}${last}`;
+  }
+
+  get emptyStateIcon(): string {
+    if (this.searchQuery) {
+      return 'm21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z';
+    }
+    switch (this.filterBy()) {
+      case 'price_dropped':
+        return 'M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.169.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z';
+      case 'target_reached':
+        return 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+      case 'purchased':
+        return 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z';
+      default:
+        return 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z';
+    }
+  }
+
+  get emptyStateTitle(): string {
+    if (this.searchQuery) return 'No results found';
+    switch (this.filterBy()) {
+      case 'price_dropped':
+        return 'No price drops yet';
+      case 'target_reached':
+        return 'No targets met yet';
+      case 'purchased':
+        return 'Nothing purchased yet';
+      default:
+        return 'No items yet';
+    }
+  }
+
+  get emptyStateSubtitle(): string {
+    if (this.searchQuery) return 'Try changing your search terms.';
+    switch (this.filterBy()) {
+      case 'price_dropped':
+        return "We'll show items here as soon as a price drops.";
+      case 'target_reached':
+        return "Set a target price on an item and it'll show up here once reached.";
+      case 'purchased':
+        return 'Items you mark as purchased will show up here.';
+      default:
+        return 'When you add items to your wishlist, they will appear here.';
+    }
   }
 
   async ngOnInit() {
@@ -617,16 +975,18 @@ export class DashboardComponent implements OnInit {
     this.isDark.set(dark);
     document.documentElement.classList.toggle('dark', dark);
 
-    const mode = (this.cookieSvc.get('ww-viewmode') as 'grid' | 'list') || 'grid';
+    const mode =
+      (this.cookieSvc.get('ww-viewmode') as 'grid' | 'list') || 'grid';
     this.viewMode.set(mode);
 
-    this.sb.user$.subscribe(user => {
+    this.sb.user$.subscribe((user) => {
       if (user) {
         this.whatsappNumber = user.user_metadata?.['whatsapp_number'] || '';
       }
     });
 
     await this.wishlistSvc.loadItems();
+    await this.wishlistSvc.loadGroups();
   }
 
   async saveWhatsappNumber() {
@@ -636,13 +996,14 @@ export class DashboardComponent implements OnInit {
     }
     this.savingWhatsapp.set(true);
     const { error } = await this.sb.client.auth.updateUser({
-      data: { whatsapp_number: this.whatsappNumber }
+      data: { whatsapp_number: this.whatsappNumber },
     });
     this.savingWhatsapp.set(false);
     if (error) {
       this.toastSvc.error(error.message || 'Could not save number');
     } else {
       this.toastSvc.success('WhatsApp updates configured successfully!');
+      this.editingWhatsapp.set(false);
     }
   }
 
@@ -677,6 +1038,104 @@ export class DashboardComponent implements OnInit {
   onEditItem(item: WishlistItem) {
     this.editingItem.set(item);
     this.showAddModal.set(true);
+  }
+
+  onViewHistory(item: WishlistItem) {
+    this.historyItemId.set(item.id);
+  }
+
+  onTagClick(tag: string) {
+    this.wishlistSvc.toggleTag(tag);
+  }
+
+  onDroppedOnItem(draggedId: string, targetItem: WishlistItem) {
+    if (targetItem.group_id) {
+      this.wishlistSvc
+        .addToGroup(targetItem.group_id, [draggedId])
+        .then(({ error }) => {
+          if (error) this.toastSvc.error('Could not add to group');
+        });
+      return;
+    }
+    this.pendingGroupItemIds.set([draggedId, targetItem.id]);
+  }
+
+  onDroppedOnGroup(draggedId: string, groupId: string) {
+    this.wishlistSvc.addToGroup(groupId, [draggedId]).then(({ error }) => {
+      if (error) this.toastSvc.error('Could not add to group');
+    });
+  }
+
+  async onGroupNameConfirmed(name: string) {
+    const ids = this.pendingGroupItemIds();
+    this.pendingGroupItemIds.set(null);
+    if (!ids) return;
+    const { error } = await this.wishlistSvc.createGroup(name, ids);
+    if (error) this.toastSvc.error('Could not create group');
+    else this.toastSvc.success(`Grouped into "${name}"`);
+  }
+
+  async onRemoveFromGroup(itemId: string) {
+    const { error } = await this.wishlistSvc.removeFromGroup(itemId);
+    if (error) this.toastSvc.error('Could not remove from group');
+  }
+
+  onGridDragOver(e: DragEvent) {
+    e.preventDefault();
+  }
+
+  async onGridDrop(e: DragEvent) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer?.getData('text/plain');
+    if (!draggedId) return;
+    // Bubbles here only when dropped on empty grid space (cards/group tiles
+    // stop propagation), so this is "drag it out" to leave its group.
+    const { error } = await this.wishlistSvc.removeFromGroup(draggedId);
+    if (error) this.toastSvc.error('Could not remove from group');
+  }
+
+  async onQuickAdd() {
+    if (!this.quickAddUrl) return;
+    this.quickAdding.set(true);
+    const { error } = await this.wishlistSvc.addItem({
+      product_url: this.quickAddUrl,
+    });
+    this.quickAdding.set(false);
+    if (error) {
+      this.toastSvc.error('Could not add item: ' + (error.message ?? error));
+      return;
+    }
+    this.quickAddUrl = '';
+    this.showQuickAdd.set(false);
+    this.toastSvc.success('Added! Fetching product details...');
+  }
+
+  async onShareWishlist() {
+    this.sharingWishlist.set(true);
+    const { token, error } = await this.shareSvc.getWishlistShareToken();
+    this.sharingWishlist.set(false);
+    await this.copyWishlistShareLink(token, error);
+  }
+
+  async onRegenerateWishlistShare() {
+    this.sharingWishlist.set(true);
+    const { token, error } = await this.shareSvc.regenerateWishlistShareToken();
+    this.sharingWishlist.set(false);
+    await this.copyWishlistShareLink(token, error);
+  }
+
+  private async copyWishlistShareLink(token: string | null, error: any) {
+    if (error || !token) {
+      this.toastSvc.error('Could not create share link');
+      return;
+    }
+    const url = `${window.location.origin}/shared/list/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.toastSvc.success('Wishlist share link copied to clipboard!');
+    } catch {
+      this.toastSvc.info(`Share link: ${url}`);
+    }
   }
 
   onDeleted(_id: string) {}

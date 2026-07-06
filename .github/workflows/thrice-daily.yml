@@ -26,11 +26,20 @@ jobs:
           const { createClient } = require('@supabase/supabase-js');
           const axios = require('axios');
           
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
           async function job() {
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
             const { data: items } = await supabase.from('items').select('*');
-            
-            for (const item of items || []) {
+
+            // Purchased items don't need further price tracking, and items
+            // with no product_url can't be scraped at all — skip both so
+            // the loop only spends time (and target-site requests) on items
+            // that can actually produce a useful check.
+            const pending = (items || []).filter((i) => !i.is_purchased && i.product_url);
+            console.log(\`Checking \${pending.length} of \${(items || []).length} items (skipped purchased/urlless)\`);
+
+            for (const item of pending) {
               try {
                 console.log('Invoking scrape-product edge function for item:', item.id);
                 const fnUrl = \`\${process.env.SUPABASE_URL}/functions/v1/scrape-product\`;
@@ -48,6 +57,9 @@ jobs:
               } catch(e) {
                 console.log('Error triggering scraper for item ID:', item.id, e.message);
               }
+              // Small delay between requests so a large wishlist doesn't
+              // fire a burst of near-simultaneous requests at target sites.
+              await sleep(500);
             }
           }
           job();

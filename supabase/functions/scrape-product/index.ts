@@ -1,17 +1,90 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore
 import { DOMParser } from "https://deno.land/x/deno_dom/deno-dom-wasm.ts"
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+declare const Deno: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Blocks obviously-internal/private targets so scraping "any product link" can't be
+// used to reach internal services or cloud metadata endpoints (SSRF). This is a
+// hostname/IP-literal check, not a DNS-rebinding-proof one — acceptable for a
+// product scraper whose targets are public retailer pages, not trusted internal APIs.
+const BLOCKED_HOSTNAMES = ['localhost', '0.0.0.0', '::1']
+
+function isPrivateIPv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (!m) return false
+  const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)]
+  if (a === 10) return true
+  if (a === 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  return false
+}
+
+export function isAllowedProductUrl(rawUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  if (BLOCKED_HOSTNAMES.includes(host)) return false
+  if (host.endsWith('.local') || host.endsWith('.internal')) return false
+  if (isPrivateIPv4(host)) return false
+  if (host.startsWith('[') || host.includes(':')) return false // reject raw IPv6 literals
+  return true
+}
+
+/**
+ * Parse schema.org Product data out of any <script type="application/ld+json">
+ * block on the page. Most storefronts (Shopify, WooCommerce, and any site
+ * that wants Google Shopping listings) emit this even when the rest of the
+ * page is client-rendered, so it's a broad, site-agnostic fallback.
+ */
+export function extractJsonLdProduct(doc: any): { name?: string; image?: string; price?: number } | null {
+  const scripts = doc.querySelectorAll('script[type="application/ld+json"]')
+  for (const script of scripts) {
+    let parsed: any
+    try {
+      parsed = JSON.parse(script.textContent ?? '')
+    } catch {
+      continue
+    }
+    const candidates = Array.isArray(parsed) ? parsed : parsed?.['@graph'] ? parsed['@graph'] : [parsed]
+    for (const node of candidates) {
+      const type = node?.['@type']
+      const isProduct = type === 'Product' || (Array.isArray(type) && type.includes('Product'))
+      if (!isProduct) continue
+
+      const rawImage = node.image
+      const image = Array.isArray(rawImage) ? rawImage[0] : (typeof rawImage === 'object' ? rawImage?.url : rawImage)
+
+      const offers = Array.isArray(node.offers) ? node.offers[0] : node.offers
+      const rawPrice = offers?.price ?? offers?.priceSpecification?.price
+      const price = rawPrice != null ? parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) : undefined
+
+      return { name: node.name, image, price: price && price > 0 ? price : undefined }
+    }
+  }
+  return null
+}
+
 /**
  * Attempt to extract a price from various meta tags and known DOM patterns.
  * Returns 0 if nothing is found.
  */
-function extractPrice(doc: any): number {
+export function extractPrice(doc: any): number {
   // Standard Open Graph
   const ogPrice = doc.querySelector('meta[property="og:price:amount"]')?.getAttribute('content')
   if (ogPrice) {
@@ -42,14 +115,18 @@ function extractPrice(doc: any): number {
     if (n > 0) return n
   }
 
+  // Generic fallback: schema.org Product JSON-LD (Shopify/WooCommerce/etc.)
+  const jsonLd = extractJsonLdProduct(doc)
+  if (jsonLd?.price) return jsonLd.price
+
   return 0
 }
 
 /**
  * Pick the best available product image.
- * Priority: og:image → amazon landingImage → flipkart q6DClP → first img > 100px
+ * Priority: og:image → amazon landingImage → flipkart q6DClP → JSON-LD Product → twitter:image
  */
-function extractImage(doc: any): string | null {
+export function extractImage(doc: any): string | null {
   const og = doc.querySelector('meta[property="og:image"]')?.getAttribute('content')
   if (og) return og
 
@@ -62,13 +139,21 @@ function extractImage(doc: any): string | null {
   const fkImg = doc.querySelector('img.q6DClP')?.getAttribute('src')
   if (fkImg) return fkImg
 
+  // Generic fallback: schema.org Product JSON-LD (Shopify/WooCommerce/etc.)
+  const jsonLd = extractJsonLdProduct(doc)
+  if (jsonLd?.image) return jsonLd.image
+
+  // Generic fallback: Twitter Card image
+  const twitterImg = doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
+  if (twitterImg) return twitterImg
+
   return null
 }
 
 /**
  * Send notification (email/whatsapp) when price drops.
  */
-async function sendNotification(
+export async function sendNotification(
   userEmail: string,
   userWhatsapp: string | null,
   itemName: string,
@@ -104,7 +189,9 @@ async function sendNotification(
           'Authorization': `Bearer ${resendKey}`,
         },
         body: JSON.stringify({
-          from: 'WillowWish <alerts@willowwish.dev>',
+          // Falls back to Resend's default sender until willowwish.dev is
+          // verified at resend.com/domains — switch back once it is.
+          from: 'WillowWish <onboarding@resend.dev>',
           to: userEmail,
           subject,
           html,
@@ -155,104 +242,132 @@ async function sendNotification(
   }
 }
 
-serve(async (req) => {
+/**
+ * Download the scraped image and re-host it in Supabase Storage (free tier)
+ * instead of hotlinking the retailer's URL, which can rot/rate-limit/block
+ * hotlinking. Falls back to null on any failure so the caller can fall back
+ * to the original hotlinked URL.
+ */
+async function uploadProductImage(supabase: any, itemId: string, imageUrl: string): Promise<string | null> {
+  if (!isAllowedProductUrl(imageUrl)) return null
+  try {
+    const res = await fetch(imageUrl)
+    if (!res.ok) return null
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    const path = `${itemId}.${ext}`
+
+    const { error } = await supabase.storage
+      .from('product-images')
+      .upload(path, bytes, { contentType, upsert: true })
+
+    if (error) return null
+
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+    return data?.publicUrl ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function handleRequest(req: any): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { url, itemId, userId, mode } = await req.json()
+    const {
+      url, itemId, userId, mode,
+      title: clientTitle, price: clientPrice, image: clientImage,
+    } = await req.json()
 
     if (!url) throw new Error('url is required')
 
-    // ── Fetch product page ─────────────────────────────────────────────
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    })
-
-    const html = await response.text()
-    const doc = new DOMParser().parseFromString(html, 'text/html')
-    if (!doc) throw new Error('HTML parsing failure')
-
-    const title  = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
-      || doc.querySelector('title')?.innerText || null
-    const image  = extractImage(doc)
-    const desc   = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || null
-    const price  = extractPrice(doc)
-
-    const scraped = { title, image, desc, price }
-
-    // ── mode: "preview" — just return scraped data, don't touch DB ─────
-    if (mode === 'preview') {
+    if (!isAllowedProductUrl(url)) {
       return new Response(
-        JSON.stringify({ success: true, ...scraped }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'URL host is not supported' }),
+        { status: 400, headers: corsHeaders }
       )
     }
 
-    // ── mode: "update" or "enrich" — database write & compare ─
+    let scraped: { title: string | null; image: string | null; desc: string | null; price: number }
+
+    if (mode === 'client_update') {
+      // The browser extension already extracted this from a live tab — used
+      // for platforms (Nykaa, Meesho, Instamart, ...) that block our own
+      // server-side fetch outright. Skip the fetch+extract step entirely
+      // and apply the same update/notify logic to the client-supplied data.
+      if (!itemId) throw new Error('itemId is required for client_update')
+      scraped = {
+        title: clientTitle ?? null,
+        image: clientImage ?? null,
+        desc: null,
+        price: typeof clientPrice === 'number' && clientPrice > 0 ? clientPrice : 0,
+      }
+    } else {
+      scraped = await fetchAndExtract(url)
+
+      // ── mode: "preview" — just return scraped data, don't touch DB ─────
+      if (mode === 'preview') {
+        return new Response(
+          JSON.stringify({ success: true, ...scraped }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // ── mode: "update"/"enrich"/"client_update" — database write & compare ─
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    if (itemId) {
-      // 1. Fetch current stored fields to compare
-      const { data: existing } = await supabase
-        .from('items')
-        .select('user_id, product_name, initial_price, current_price, target_price, is_notified')
-        .eq('id', itemId)
-        .single()
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, '')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-      const patch: Record<string, any> = { last_scraped_at: new Date() }
-      if (image)  patch.image_url    = image
-      if (title && !existing?.product_name)  patch.product_name = title
-      if (desc && !existing?.description)   patch.description  = desc
+    // The scheduled re-scrape job (thrice-daily.yml) calls this function
+    // server-to-server with the service role key, not a user session — it
+    // already selects itemIds directly from the DB, so ownership is implicit.
+    // auth.getUser() only resolves real user sessions, so that trusted path
+    // must be checked separately or every scheduled call 401s.
+    const isServiceCaller = bearerToken !== '' && bearerToken === serviceRoleKey
+    let callerId: string | null = null
 
-      if (price > 0) {
-        patch.current_price = price
-        
-        // If initial price is not set, set it now
-        if (!existing?.initial_price) {
-          patch.initial_price = price;
-        }
-
-        // Compare price change
-        const oldPrice = existing?.current_price || existing?.initial_price || price;
-        const itemName = existing?.product_name || title || 'Wishlist Item';
-        
-        if (existing?.user_id) {
-          // Get user details for notification
-          const { data: userData } = await supabase.auth.admin.getUserById(existing.user_id)
-          const userEmail = userData?.user?.email || "";
-          const userWhatsapp = userData?.user?.user_metadata?.whatsapp_number || null;
-
-          // Alert 1: Price drop
-          if (price < oldPrice) {
-            await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, false);
-          }
-
-          // Alert 2: Target price reached
-          if (existing.target_price && price <= existing.target_price && !existing.is_notified) {
-            patch.is_notified = true;
-            await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, true);
-          }
-        }
+    if (!isServiceCaller) {
+      const { data: authData, error: authError } = await supabase.auth.getUser(bearerToken)
+      if (authError || !authData?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: corsHeaders }
+        )
       }
-      
-      await supabase.from('items').update(patch).eq('id', itemId)
+      callerId = authData.user.id
+    }
+
+    if (itemId) {
+      const updateError = await applyItemUpdate(supabase, itemId, callerId, isServiceCaller, scraped)
+      if (updateError) {
+        return new Response(
+          JSON.stringify({ error: updateError.error }),
+          { status: updateError.status, headers: corsHeaders }
+        )
+      }
     } else if (userId) {
+      if (userId !== callerId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: corsHeaders }
+        )
+      }
       // Legacy / Backup
       await supabase.from('items').insert({
         user_id: userId,
         product_url: url,
-        product_name: title,
-        description: desc,
-        image_url: image,
-        initial_price: price > 0 ? price : null,
-        current_price: price > 0 ? price : null,
+        product_name: scraped.title,
+        description: scraped.desc,
+        image_url: scraped.image,
+        initial_price: scraped.price > 0 ? scraped.price : null,
+        current_price: scraped.price > 0 ? scraped.price : null,
       })
     }
 
@@ -266,4 +381,161 @@ serve(async (req) => {
       { status: 400, headers: corsHeaders }
     )
   }
-})
+}
+
+/**
+ * Fetch a product page and extract title/image/description/price. Used for
+ * every mode except "client_update", where the caller already has the data.
+ */
+export async function fetchAndExtract(url: string): Promise<{ title: string | null; image: string | null; desc: string | null; price: number }> {
+  // redirect: 'manual' on every hop so a redirect can't be used to smuggle
+  // the request to a disallowed host (SSRF via open redirect) — each hop's
+  // target is re-validated against the same allowlist before being fetched.
+  const fetchHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+  }
+
+  let currentUrl = url
+  let response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+
+  const MAX_REDIRECTS = 5
+  let redirectCount = 0
+  while (response.status >= 300 && response.status < 400) {
+    if (++redirectCount > MAX_REDIRECTS) {
+      throw new Error('Too many redirects')
+    }
+    const location = response.headers.get('location')
+    const redirectTarget = location ? new URL(location, currentUrl).href : null
+    if (!redirectTarget || !isAllowedProductUrl(redirectTarget)) {
+      throw new Error('URL host is not supported')
+    }
+    currentUrl = redirectTarget
+    response = await fetch(currentUrl, { redirect: 'manual', headers: fetchHeaders })
+  }
+
+  const html = await response.text()
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  if (!doc) throw new Error('HTML parsing failure')
+
+  const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
+    || extractJsonLdProduct(doc)?.name
+    || doc.querySelector('title')?.innerText || null
+  let image = extractImage(doc)
+
+  // Resolve relative image URLs to absolute URLs
+  if (image && !image.startsWith('http://') && !image.startsWith('https://')) {
+    try {
+      const parsedUrl = new URL(url)
+      image = new URL(image, parsedUrl.origin).href
+    } catch (e) {
+      console.error('Failed to resolve relative image URL:', e)
+    }
+  }
+
+  const desc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || null
+  const price = extractPrice(doc)
+
+  // A blocked/challenge/fallback page (e.g. a bot-detection interstitial or a
+  // generic "not found" shell) rarely has a real price or image, but its
+  // <title> is still just plain text — so a "successful" scrape with no
+  // price and no image is a strong signal the title is garbage too. Treat
+  // the whole scrape as empty rather than mislabel the item.
+  if (price <= 0 && !image) {
+    return { title: null, image: null, desc: null, price: 0 }
+  }
+
+  return { title, image, desc, price }
+}
+
+/**
+ * Apply already-resolved scraped data to an item: update patch fields,
+ * record a price_history point on change, and fire price-drop/target-met
+ * notifications. Shared by the server-side fetch path and the extension's
+ * client_update path so the notification logic isn't duplicated.
+ */
+export async function applyItemUpdate(
+  supabase: any,
+  itemId: string,
+  callerId: string | null,
+  isServiceCaller: boolean,
+  scraped: { title: string | null; image: string | null; desc: string | null; price: number }
+): Promise<{ error: string; status: number } | null> {
+  const { title, image, desc, price } = scraped
+
+  const { data: existing } = await supabase
+    .from('items')
+    .select('user_id, product_name, initial_price, current_price, target_price, is_notified, is_purchased')
+    .eq('id', itemId)
+    .single()
+
+  if (!existing || (!isServiceCaller && existing.user_id !== callerId)) {
+    return { error: 'Forbidden', status: 403 }
+  }
+
+  const patch: Record<string, any> = { last_scraped_at: new Date() }
+  if (image) {
+    const storedImageUrl = await uploadProductImage(supabase, itemId, image)
+    patch.image_url = storedImageUrl ?? image
+  }
+  if (title && !existing?.product_name) patch.product_name = title
+  if (desc && !existing?.description) patch.description = desc
+
+  // Skip price tracking/notifications entirely for items already marked
+  // purchased — the user doesn't need price-drop alerts for something
+  // they've already bought.
+  if (price > 0 && !existing?.is_purchased) {
+    const isNewPricePoint = existing?.current_price == null || price !== existing.current_price
+    patch.current_price = price
+
+    // If initial price is not set, set it now
+    if (!existing?.initial_price) {
+      patch.initial_price = price
+    }
+
+    if (isNewPricePoint) {
+      await supabase.from('price_history').insert({ item_id: itemId, price })
+    }
+
+    // Compare price change
+    const oldPrice = existing?.current_price || existing?.initial_price || price
+    const itemName = existing?.product_name || title || 'Wishlist Item'
+
+    if (existing?.user_id) {
+      // Get user details for notification
+      const { data: userData } = await supabase.auth.admin.getUserById(existing.user_id)
+      const userEmail = userData?.user?.email || ""
+      const userWhatsapp = userData?.user?.user_metadata?.whatsapp_number || null
+
+      // Alert 1: Price drop
+      if (price < oldPrice) {
+        await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, false)
+      }
+
+      // Alert 2: Target price reached
+      if (existing.target_price && price <= existing.target_price && !existing.is_notified) {
+        patch.is_notified = true
+        await sendNotification(userEmail, userWhatsapp, itemName, oldPrice, price, true)
+      }
+    }
+  }
+
+  await supabase.from('items').update(patch).eq('id', itemId)
+  return null
+}
+
+// Only start the listener when this file is run directly (Supabase's
+// runtime does exactly that) — importing it for tests must not bind a port.
+if (import.meta.main) {
+  serve(handleRequest)
+}

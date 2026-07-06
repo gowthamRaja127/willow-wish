@@ -82,7 +82,7 @@ import { ToastService } from '../../../core/services/toast.service';
           }
 
           <!-- Product Name & Description -->
-          <div class="space-y-3 p-3 bg-muted/20 border border-border/50 rounded-xl">
+          <div class="space-y-3 pb-3 border-b border-border">
             <div class="space-y-1.5">
               <label class="text-sm font-medium text-foreground">Product Name</label>
               <input
@@ -101,6 +101,17 @@ import { ToastService } from '../../../core/services/toast.service';
                 [(ngModel)]="form.description"
                 name="description"
                 placeholder="Product description/details"
+                class="input"
+                [disabled]="loading() || scrapingPreview()"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-sm font-medium text-foreground">Image URL</label>
+              <input
+                type="url"
+                [(ngModel)]="form.image_url"
+                name="image_url"
+                placeholder="https://example.com/image.jpg"
                 class="input"
                 [disabled]="loading() || scrapingPreview()"
               />
@@ -124,11 +135,16 @@ import { ToastService } from '../../../core/services/toast.service';
             </div>
             <div class="space-y-1.5">
               <label class="text-sm font-medium text-foreground">Priority</label>
-              <select [(ngModel)]="form.priority" name="priority" class="input">
-                <option value="low">🟢 Low</option>
-                <option value="medium">🟡 Medium</option>
-                <option value="high">🔴 High</option>
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="form.priority" name="priority" class="input pr-8 appearance-none cursor-pointer">
+                  <option value="low">🟢 Low</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="high">🔴 High</option>
+                </select>
+                <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -137,24 +153,39 @@ import { ToastService } from '../../../core/services/toast.service';
             <label class="text-sm font-medium text-foreground">Target Purchase Date</label>
             <div class="grid grid-cols-3 gap-2">
               <!-- Day -->
-              <select [(ngModel)]="dateDay" name="dateDay" (ngModelChange)="syncDate()" class="input text-sm" [disabled]="loading()">
-                <option value="">Day</option>
-                @for (d of days(); track d) {
-                  <option [value]="d">{{ d }}</option>
-                }
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="dateDay" name="dateDay" (ngModelChange)="syncDate()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  <option value="">Day</option>
+                  @for (d of days(); track d) {
+                    <option [value]="d">{{ d }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
               <!-- Month -->
-              <select [(ngModel)]="dateMonth" name="dateMonth" (ngModelChange)="onMonthOrYearChange()" class="input text-sm" [disabled]="loading()">
-                @for (m of months; track m.value) {
-                  <option [value]="m.value">{{ m.label }}</option>
-                }
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="dateMonth" name="dateMonth" (ngModelChange)="onMonthOrYearChange()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  @for (m of months; track m.value) {
+                    <option [value]="m.value">{{ m.label }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
               <!-- Year -->
-              <select [(ngModel)]="dateYear" name="dateYear" (ngModelChange)="onMonthOrYearChange()" class="input text-sm" [disabled]="loading()">
-                @for (y of years; track y) {
-                  <option [value]="y">{{ y }}</option>
-                }
-              </select>
+              <div class="relative">
+                <select [(ngModel)]="dateYear" name="dateYear" (ngModelChange)="onMonthOrYearChange()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  @for (y of years; track y) {
+                    <option [value]="y">{{ y }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
             </div>
             @if (form.target_purchase_date) {
               <p class="text-xs text-muted-foreground pt-0.5">
@@ -301,7 +332,7 @@ export class AddItemModalComponent implements OnInit {
             this.form.target_price = result.price;
           }
         }
-        this.toast.success('Auto-filled product details! ✨');
+        this.toast.success('Auto-filled product details!');
       } else {
         this.toast.info('Could not auto-scrape. You can type details manually.');
       }
@@ -355,6 +386,7 @@ export class AddItemModalComponent implements OnInit {
       const payload: UpdateItemPayload = {
         product_name: this.form.product_name ?? undefined,
         description: this.form.description ?? undefined,
+        image_url: this.form.image_url ?? null,
         target_price: this.form.target_price ?? null,
         priority: this.form.priority,
         target_purchase_date: this.form.target_purchase_date ?? null,
@@ -374,6 +406,7 @@ export class AddItemModalComponent implements OnInit {
         product_url: this.form.product_url,
         product_name: this.form.product_name ?? null,
         description: this.form.description ?? null,
+        image_url: this.form.image_url ?? null,
         target_price: this.form.target_price ?? null,
         target_purchase_date: this.form.target_purchase_date ?? null,
         tags,
@@ -381,10 +414,6 @@ export class AddItemModalComponent implements OnInit {
         notes: this.form.notes ?? null,
       };
 
-      // Also copy image_url if scraped
-      if (this.form.image_url) {
-        (payload as any).image_url = this.form.image_url;
-      }
       if (this.scrapedPrice() !== null) {
         (payload as any).initial_price = this.scrapedPrice();
         (payload as any).current_price = this.scrapedPrice();
@@ -395,7 +424,7 @@ export class AddItemModalComponent implements OnInit {
       if (error) {
         this.toast.error('Failed to add item: ' + error.message);
       } else {
-        this.toast.success('Item added to wishlist! 🎉');
+        this.toast.success('Item added to wishlist!');
         this.saved.emit();
         this.close.emit();
       }
