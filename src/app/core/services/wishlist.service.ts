@@ -285,7 +285,14 @@ export class WishlistService {
         this.scrapeProduct(payload.product_url, data.id).then(enriched => {
           if (enriched) {
             this._items.update(items =>
-              items.map(i => i.id === data.id ? { ...i, ...enriched } : i)
+              items.map(i => i.id === data.id ? {
+                ...i,
+                image_url: enriched.image ?? i.image_url,
+                product_name: enriched.title ?? i.product_name,
+                description: enriched.desc ?? i.description,
+                current_price: enriched.price ?? i.current_price,
+                initial_price: i.initial_price ?? enriched.price ?? null,
+              } : i)
             );
           }
         });
@@ -323,7 +330,8 @@ export class WishlistService {
       const json = await res.json();
       if (!json.success) return null;
       return { image: json.image ?? null, title: json.title ?? null, desc: json.desc ?? null, price: json.price ?? 0 };
-    } catch {
+    } catch (err) {
+      console.error('scrapeProduct error:', err);
       return null;
     }
   }

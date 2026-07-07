@@ -12,6 +12,8 @@ import { PriceHistoryModalComponent } from '../wishlist/price-history-modal/pric
 import { GroupTileComponent } from '../wishlist/group-tile/group-tile.component';
 import { GroupNameModalComponent } from '../wishlist/group-name-modal/group-name-modal.component';
 import { ShareService } from '../../core/services/share.service';
+import { ExtensionBridgeService } from '../../core/services/extension-bridge.service';
+import { isBlockedPlatformUrl } from '../../core/utils/blocked-platforms';
 import {
   WishlistItem,
   SortBy,
@@ -479,7 +481,7 @@ import {
         </div>
 
         <!-- Stat tiles -->
-        <div class="grid grid-cols-4 gap-3 p-4 border-b border-border">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 border-b border-border">
           <div class="rounded-lg border border-border p-3">
             <div class="text-lg font-bold text-foreground">
               {{ stats().total }}
@@ -508,52 +510,54 @@ import {
 
         <!-- Search & Sort -->
         <div
-          class="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
+          class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
         >
-          @if (activeTag()) {
-            <button
-              (click)="wishlistSvc.toggleTag(activeTag()!)"
-              class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
-            >
-              #{{ activeTag() }}
+          <div class="flex items-center gap-3 w-full sm:w-auto flex-1">
+            @if (activeTag()) {
+              <button
+                (click)="wishlistSvc.toggleTag(activeTag()!)"
+                class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
+              >
+                #{{ activeTag() }}
+                <svg
+                  class="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            }
+            <div class="flex-1 relative max-w-sm w-full">
               <svg
-                class="w-3 h-3"
+                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2.5"
                 viewBox="0 0 24 24"
               >
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-            </button>
-          }
-          <div class="flex-1 relative max-w-sm">
-            <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              <input
+                type="text"
+                [(ngModel)]="searchQuery"
+                (input)="onSearch()"
+                placeholder="Search wishlist..."
+                class="input pl-9 h-9 rounded-lg w-full"
               />
-            </svg>
-            <input
-              type="text"
-              [(ngModel)]="searchQuery"
-              (input)="onSearch()"
-              placeholder="Search wishlist..."
-              class="input pl-9 h-9 rounded-lg"
-            />
+            </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t border-border/10 sm:border-t-0">
             <!-- Grid Layout Toggle -->
             <button
               (click)="setViewMode('grid')"
@@ -585,10 +589,10 @@ import {
               </svg>
             </button>
 
-            <div class="relative">
+            <div class="relative flex-1 sm:flex-initial">
               <select
                 (change)="onSort($event)"
-                class="input h-9 w-auto rounded-lg pl-3 pr-8 text-sm font-medium cursor-pointer appearance-none"
+                class="input h-9 w-full sm:w-auto rounded-lg pl-3 pr-8 text-sm font-medium cursor-pointer appearance-none"
               >
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
@@ -880,6 +884,7 @@ export class DashboardComponent implements OnInit {
     private router: Router,
     private cookieSvc: CookieService,
     private shareSvc: ShareService,
+    private extensionBridge: ExtensionBridgeService,
   ) {}
 
   get filteredItems() {
@@ -1096,9 +1101,10 @@ export class DashboardComponent implements OnInit {
 
   async onQuickAdd() {
     if (!this.quickAddUrl) return;
+    const url = this.quickAddUrl;
     this.quickAdding.set(true);
-    const { error } = await this.wishlistSvc.addItem({
-      product_url: this.quickAddUrl,
+    const { data, error } = await this.wishlistSvc.addItem({
+      product_url: url,
     });
     this.quickAdding.set(false);
     if (error) {
@@ -1107,7 +1113,22 @@ export class DashboardComponent implements OnInit {
     }
     this.quickAddUrl = '';
     this.showQuickAdd.set(false);
-    this.toastSvc.success('Added! Fetching product details...');
+
+    // Sites we can't scrape server-side (Nykaa/Meesho/Instamart) rely on the
+    // browser extension — ask it to fetch this item right away instead of
+    // waiting for its next periodic cycle (up to 8h later). No-ops silently
+    // if the extension isn't installed; the item still shows up blank-ish
+    // and gets filled in whenever the extension does eventually run.
+    if (data && isBlockedPlatformUrl(url)) {
+      this.toastSvc.success('Added! Asking your browser extension for details...');
+      this.extensionBridge.fetchItemNow(url, data.id).then((result) => {
+        if (result?.updated) {
+          this.toastSvc.success('Product details fetched!');
+        }
+      });
+    } else {
+      this.toastSvc.success('Added! Fetching product details...');
+    }
   }
 
   async onShareWishlist() {
@@ -1146,7 +1167,9 @@ export class DashboardComponent implements OnInit {
   }
 
   async signOut() {
-    await this.sb.signOut();
-    this.router.navigate(['/auth/login']);
+    if (confirm('Are you sure you want to log out?')) {
+      await this.sb.signOut();
+      this.router.navigate(['/auth/login']);
+    }
   }
 }

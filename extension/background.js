@@ -1,9 +1,12 @@
-import { ensureFreshSession, supabaseFetch, SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from './supabase-rest.js'
+import { ensureFreshSession, supabaseFetch, setSessionFromCookies, SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from './supabase-rest.js'
 
-// Only platforms confirmed (this session, via direct testing) to block our
-// server-side scraper outright. Amazon/Flipkart/Myntra already work from
-// the server and don't need a live tab.
-const BLOCKED_HOSTS = ['nykaa.com', 'meesho.com', 'swiggy.com']
+// Platforms confirmed to block or degrade our server-side scraper —
+// checked from the ACTUAL production Supabase edge network IP, not just a
+// local test environment (Flipkart/Myntra initially looked fine from a
+// local sandbox but return a fake maintenance page / HTTP 529 specifically
+// to Supabase's IP range once tested from production). Only Amazon has
+// been confirmed genuinely reliable from both.
+const BLOCKED_HOSTS = ['nykaa.com', 'meesho.com', 'swiggy.com', 'flipkart.com', 'myntra.com']
 
 const REFRESH_ALARM = 'willowwish-refresh'
 const CHECK_INTERVAL_MINUTES = 480 // 8h — mirrors the server-side cron cadence
@@ -25,7 +28,46 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ ok: false, error: String(e) }))
     return true // keep the message channel open for the async response
   }
+
+  // Called from the Quick Add flow (via bridge-content-script.js) so a
+  // blocked-platform item doesn't sit blank until the next periodic cycle.
+  if (msg?.type === 'FETCH_ITEM_NOW') {
+    refreshItemViaServer(msg.url, msg.itemId)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }))
+    return true
+  }
+
+  // Pushed by bridge-content-script.js whenever it runs on the website with
+  // an active login — lets the extension act as the logged-in user without
+  // its own separate login step.
+  if (msg?.type === 'SYNC_SESSION_FROM_COOKIES') {
+    setSessionFromCookies(msg.accessToken, msg.refreshToken, msg.expiresAt)
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }))
+    return true
+  }
 })
+
+/** Extracts a product page's data from a live tab and hands it to
+ * scrape-product's client_update mode, which does the actual DB write
+ * (items patch + price_history + price-drop/target-met notifications).
+ * The extension only ever fetches; the edge function is the one service
+ * with the right permissions (service role) to write both tables —
+ * price_history in particular has no direct-write RLS policy for regular
+ * users, only the service-role-backed function can insert into it. Used by
+ * both the periodic monitoring cycle and Quick Add's immediate fetch. */
+async function refreshItemViaServer(url, itemId) {
+  const session = await ensureFreshSession()
+  if (!session) return { updated: false, reason: 'not_logged_in' }
+
+  const extracted = await extractFromLiveTab(url)
+  if (!extracted || (!(extracted.price > 0) && !extracted.image)) {
+    return { updated: false, reason: 'nothing_extracted' }
+  }
+  await postClientUpdate(itemId, url, extracted, session)
+  return { updated: true, extracted }
+}
 
 function isBlockedPlatformUrl(url) {
   try {
@@ -59,12 +101,11 @@ async function runRefreshCycle() {
   let updated = 0
   for (const item of targets) {
     try {
-      const extracted = await extractFromLiveTab(item.product_url)
-      if (extracted && (extracted.price > 0 || extracted.image)) {
-        await postClientUpdate(item.id, item.product_url, extracted, session)
+      const result = await refreshItemViaServer(item.product_url, item.id)
+      if (result.updated) {
         updated++
       } else {
-        console.log('[WillowWish] Nothing usable extracted for item', item.id)
+        console.log('[WillowWish] Nothing usable extracted for item', item.id, result.reason)
       }
     } catch (e) {
       console.log('[WillowWish] Failed to refresh item', item.id, e)

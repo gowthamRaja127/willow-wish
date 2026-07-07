@@ -17,6 +17,8 @@ npm run build
 echo "☁️ Deploying build artifacts to Cloudflare Pages..."
 # Note: This will prompt you to authenticate with Cloudflare in the browser,
 # or you can set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables.
+# To deploy directly to production, append '--branch=main' (or your designated production branch):
+# npx wrangler pages deploy dist/willow-wish-app/browser --project-name=willow-wish --branch=main
 npx wrangler pages deploy dist/willow-wish-app/browser --project-name=willow-wish
 
 echo "🎉 Deployment complete!"

@@ -8,20 +8,18 @@ export const SUPABASE_URL = 'https://kjbeotlksumouwedpvfz.supabase.co'
 export const SUPABASE_ANON_KEY = 'sb_publishable_kkaMmEXAF8MPSOWroWzuzQ_gMBpzyVc'
 export const SUPABASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`
 
-export async function login(email, password) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-    body: JSON.stringify({ email, password }),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data?.error_description || data?.msg || 'Login failed')
-
+/**
+ * Adopts the website's own session instead of requiring a separate login —
+ * the website already writes plain (non-HttpOnly) cookies specifically for
+ * this (ww_access_token/ww_refresh_token/ww_expires_at), readable by the
+ * bridge content script running on the site. See
+ * src/app/core/services/supabase.service.ts's writeSessionCookies().
+ */
+export async function setSessionFromCookies(accessToken, refreshToken, expiresAtSeconds) {
   const session = {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Date.now() + data.expires_in * 1000,
-    email,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_at: Number(expiresAtSeconds) * 1000,
   }
   await chrome.storage.local.set({ session })
   return session
@@ -56,7 +54,6 @@ export async function ensureFreshSession() {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
     expires_at: Date.now() + data.expires_in * 1000,
-    email: session.email,
   }
   await chrome.storage.local.set({ session: refreshed })
   return refreshed
