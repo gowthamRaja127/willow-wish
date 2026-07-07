@@ -14,11 +14,16 @@ import { GroupNameModalComponent } from '../wishlist/group-name-modal/group-name
 import { ShareService } from '../../core/services/share.service';
 import { ExtensionBridgeService } from '../../core/services/extension-bridge.service';
 import { isBlockedPlatformUrl } from '../../core/utils/blocked-platforms';
-import {
-  WishlistItem,
-  SortBy,
-  FilterBy,
-} from '../../core/models/wishlist.model';
+import { WishlistItem, SortBy, FilterBy } from '../../core/models/wishlist.model';
+
+// Sub-components
+import { SidebarComponent } from './components/sidebar/sidebar.component';
+import { HeaderComponent } from './components/header/header.component';
+import { StatsComponent } from './components/stats/stats.component';
+import { QuickAddModalComponent } from '../wishlist/quick-add-modal/quick-add-modal.component';
+
+// External Package Icons
+import { LucideSearch, LucideLayoutGrid, LucideList, LucideX } from '@lucide/angular';
 
 @Component({
   selector: 'app-dashboard',
@@ -31,523 +36,64 @@ import {
     PriceHistoryModalComponent,
     GroupTileComponent,
     GroupNameModalComponent,
+    SidebarComponent,
+    HeaderComponent,
+    StatsComponent,
+    QuickAddModalComponent,
+    LucideSearch,
+    LucideLayoutGrid,
+    LucideList,
+    LucideX
   ],
   template: `
-    <div
-      class="min-h-screen bg-background text-foreground pb-16 md:pb-0 md:pl-20 lg:pl-64 flex"
-    >
-      <!-- Desktop Sidebar -->
-      <aside
-        class="fixed inset-y-0 left-0 w-20 lg:w-64 bg-background border-r border-border hidden md:flex flex-col z-30 pt-8 pb-4 px-4 lg:px-6"
-      >
-        <div
-          class="mb-10 flex items-center justify-center lg:justify-start px-2"
-        >
-          <img
-            src="assets/logo.svg"
-            alt="WillowWish"
-            class="h-[8.5rem] w-auto hidden lg:block"
-          />
-          <!-- Icon-only for collapsed sidebar -->
-          <div
-            class="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shrink-0 lg:hidden"
-          >
-            <svg
-              class="w-5 h-5 text-primary-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-              />
-            </svg>
-          </div>
-        </div>
-
-        <nav class="flex-1 space-y-4">
-          <button
-            (click)="setFilter('all')"
-            [class]="
-              filterBy() === 'all'
-                ? 'flex items-center gap-4 p-3 w-full rounded-lg text-primary font-bold bg-muted'
-                : 'flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors'
-            "
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-            <span class="hidden lg:block text-base">All Items</span>
-          </button>
-
-          <button
-            (click)="setFilter('price_dropped')"
-            [class]="
-              filterBy() === 'price_dropped'
-                ? 'flex items-center gap-4 p-3 w-full rounded-lg text-primary font-bold bg-muted'
-                : 'flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors'
-            "
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
-              />
-            </svg>
-            <span class="hidden lg:block text-base">Price Dropped</span>
-          </button>
-
-          <button
-            (click)="setFilter('target_reached')"
-            [class]="
-              filterBy() === 'target_reached'
-                ? 'flex items-center gap-4 p-3 w-full rounded-lg text-primary font-bold bg-muted'
-                : 'flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors'
-            "
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span class="hidden lg:block text-base">Targets Met</span>
-          </button>
-
-          <button
-            (click)="setFilter('purchased')"
-            [class]="
-              filterBy() === 'purchased'
-                ? 'flex items-center gap-4 p-3 w-full rounded-lg text-primary font-bold bg-muted'
-                : 'flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors'
-            "
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-            <span class="hidden lg:block text-base">Purchased</span>
-          </button>
-
-          <button
-            (click)="showAddModal.set(true)"
-            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors mt-8 text-primary"
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            <span class="hidden lg:block text-base font-bold">Add Item</span>
-          </button>
-
-          <button
-            (click)="showQuickAdd.set(true)"
-            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors text-primary"
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-            <span class="hidden lg:block text-base font-bold">Quick Add</span>
-          </button>
-
-          <div class="flex items-center gap-1">
-            <button
-              (click)="onShareWishlist()"
-              [disabled]="sharingWishlist()"
-              class="flex items-center gap-4 p-3 flex-1 rounded-lg hover:bg-muted/50 transition-colors"
-            >
-              <svg
-                class="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8.684 13.342a3 3 0 100 2.684m9.632-9.026a3 3 0 10-2.684-2.684m0 12.026a3 3 0 102.684-2.684M6.316 10.658L15.684 5.658M6.316 13.342l9.368 5"
-                />
-              </svg>
-              <span class="hidden lg:block text-base text-left">{{
-                sharingWishlist() ? 'Copying...' : 'Share'
-              }}</span>
-            </button>
-            <button
-              (click)="onRegenerateWishlistShare()"
-              [disabled]="sharingWishlist()"
-              title="Regenerate wishlist share link"
-              class="p-2 rounded-lg hover:bg-muted/50 transition-colors"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4.5 12a7.5 7.5 0 0113.5-4.5M19.5 12a7.5 7.5 0 01-13.5 4.5M4.5 7.5v3h3M19.5 16.5v-3h-3"
-                />
-              </svg>
-            </button>
-          </div>
-        </nav>
-
-        <div class="mt-auto pt-4 border-t border-border">
-          <button
-            (click)="signOut()"
-            class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors"
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            <span class="hidden lg:block text-base">Log Out</span>
-          </button>
-        </div>
-      </aside>
-
-      <!-- Mobile Bottom Nav -->
-      <nav
-        class="fixed bottom-0 left-0 right-0 h-16 bg-background border-t border-border flex items-center justify-around md:hidden z-30 px-4"
-      >
-        <button
-          class="p-3"
-          (click)="setFilter('all')"
-          [class.text-primary]="filterBy() === 'all'"
-        >
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-            />
-          </svg>
-        </button>
-        <button
-          class="p-3"
-          (click)="setFilter('price_dropped')"
-          [class.text-primary]="filterBy() === 'price_dropped'"
-        >
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
-            />
-          </svg>
-        </button>
-        <button class="p-3 text-primary" (click)="showAddModal.set(true)">
-          <svg
-            class="w-7 h-7"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-        </button>
-        <button
-          class="p-3"
-          (click)="setFilter('target_reached')"
-          [class.text-primary]="filterBy() === 'target_reached'"
-        >
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        </button>
-        <button class="p-3" (click)="signOut()">
-          <div
-            class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs"
-          >
-            {{ userInitial() }}
-          </div>
-        </button>
-      </nav>
+    <div class="min-h-screen bg-background text-foreground pb-16 md:pb-0 md:pl-20 lg:pl-64 flex">
+      <!-- Desktop/Mobile Sidebar Navigation -->
+      <app-sidebar
+        [filterBy]="filterBy()"
+        [userInitial]="userInitial()"
+        [sharingWishlist]="sharingWishlist()"
+        (filterChanged)="setFilter($event)"
+        (addModalOpened)="showAddModal.set(true)"
+        (quickAddOpened)="showQuickAdd.set(true)"
+        (shareWishlist)="onShareWishlist()"
+        (regenerateShare)="onRegenerateWishlistShare()"
+        (signOut)="signOut()"
+      />
 
       <!-- Main Content -->
       <main class="flex-1 w-full min-h-screen bg-background">
-        <!-- Header: Profile-like stats -->
-        <header
-          class="p-6 md:p-10 border-b border-border flex flex-row items-center gap-6 sm:gap-10"
-        >
-          <div
-            class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted border border-border flex items-center justify-center text-3xl sm:text-4xl font-bold text-foreground shrink-0"
-          >
-            {{ userInitial() }}
-          </div>
-          <div class="flex-1 flex flex-col gap-3">
-            <div class="flex items-center gap-4">
-              <h1 class="text-xl sm:text-2xl font-semibold">
-                {{ userDisplayName() }}
-              </h1>
-              <button
-                (click)="toggleDark()"
-                class="btn-secondary btn-sm rounded-lg hidden sm:flex items-center justify-center"
-                [attr.title]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
-              >
-                @if (isDark()) {
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1.5m0 15V21m8.485-8.485h-1.5m-15 0H3m14.849 6.349-1.061-1.06M6.213 6.211l-1.06-1.06m12.727 0-1.06 1.06M6.213 17.788l-1.06 1.06M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
-                  </svg>
-                } @else {
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-                  </svg>
-                }
-              </button>
-            </div>
-            <div class="text-sm text-muted-foreground hidden sm:block">
-              Organizing your wishes and catching price drops before they're
-              gone. ✨
-            </div>
-            <!-- WhatsApp Updates Config -->
-            <div class="flex items-center gap-2 mt-1 max-w-sm hidden sm:flex">
-              <span class="text-xs text-muted-foreground whitespace-nowrap"
-                >WhatsApp No:</span
-              >
-              @if (editingWhatsapp()) {
-                <div class="flex items-center gap-1.5 flex-1">
-                  <input
-                    type="text"
-                    placeholder="e.g. +919876543210"
-                    [(ngModel)]="whatsappNumber"
-                    class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
-                  />
-                  <button
-                    (click)="saveWhatsappNumber()"
-                    class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
-                    [disabled]="savingWhatsapp()"
-                  >
-                    {{ savingWhatsapp() ? '...' : 'Save' }}
-                  </button>
-                </div>
-              } @else {
-                <div class="flex items-center gap-1.5 flex-1">
-                  <span class="text-xs font-mono text-foreground">{{ maskedWhatsapp() }}</span>
-                  <button
-                    (click)="editingWhatsapp.set(true)"
-                    class="p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
-                    title="Edit WhatsApp number"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.06 2.06 0 1 1 2.914 2.914L7.5 19.674l-4 1 1-4L16.862 4.487Z" />
-                    </svg>
-                  </button>
-                </div>
-              }
-            </div>
-          </div>
-        </header>
+        <!-- Header Section -->
+        <app-header
+          [userInitial]="userInitial()"
+          [userDisplayName]="userDisplayName()"
+          [isDark]="isDark()"
+          [editingWhatsapp]="editingWhatsapp()"
+          [whatsappNumber]="whatsappNumber"
+          [savingWhatsapp]="savingWhatsapp()"
+          [maskedWhatsapp]="maskedWhatsapp()"
+          (toggleDark)="toggleDark()"
+          (editWhatsapp)="editingWhatsapp.set($event)"
+          (whatsappNumberChange)="whatsappNumber = $event"
+          (saveWhatsapp)="saveWhatsappNumber()"
+        />
 
-        <!-- Mobile bio & settings -->
-        <div
-          class="p-4 text-sm text-muted-foreground sm:hidden border-b border-border space-y-3"
-        >
-          <div>
-            Organizing your wishes and catching price drops before they're gone.
-            ✨
-          </div>
+        <!-- Stats Grid -->
+        <app-stats [stats]="stats()" />
 
-          <div class="flex flex-col gap-1.5 pt-2 border-t border-border/40">
-            <span class="text-xs text-muted-foreground font-medium"
-              >WhatsApp Updates:</span
-            >
-            @if (editingWhatsapp()) {
-              <div class="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  placeholder="e.g. +919876543210"
-                  [(ngModel)]="whatsappNumber"
-                  class="input h-8 px-2.5 py-1 text-xs bg-muted/40 border border-border rounded-lg flex-1"
-                />
-                <button
-                  (click)="saveWhatsappNumber()"
-                  class="btn-primary text-[10px] h-8 px-3 rounded-lg flex items-center justify-center font-bold shrink-0"
-                  [disabled]="savingWhatsapp()"
-                >
-                  {{ savingWhatsapp() ? '...' : 'Save' }}
-                </button>
-              </div>
-            } @else {
-              <div class="flex items-center gap-1.5">
-                <span class="text-xs font-mono text-foreground">{{ maskedWhatsapp() }}</span>
-                <button
-                  (click)="editingWhatsapp.set(true)"
-                  class="p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
-                  title="Edit WhatsApp number"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.06 2.06 0 1 1 2.914 2.914L7.5 19.674l-4 1 1-4L16.862 4.487Z" />
-                  </svg>
-                </button>
-              </div>
-            }
-          </div>
-        </div>
-
-        <!-- Stat tiles -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 border-b border-border">
-          <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">
-              {{ stats().total }}
-            </div>
-            <div class="text-xs text-muted-foreground">Items</div>
-          </div>
-          <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">
-              {{ stats().priceDrop }}
-            </div>
-            <div class="text-xs text-muted-foreground">Drops</div>
-          </div>
-          <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">
-              ₹{{ stats().totalSavings | number: '1.0-0' }}
-            </div>
-            <div class="text-xs text-muted-foreground">Saved</div>
-          </div>
-          <div class="rounded-lg border border-border p-3">
-            <div class="text-lg font-bold text-foreground">
-              {{ stats().purchased }}
-            </div>
-            <div class="text-xs text-muted-foreground">Purchased</div>
-          </div>
-        </div>
-
-        <!-- Search & Sort -->
-        <div
-          class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3"
-        >
+        <!-- Search & Sort Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-border bg-background sticky top-0 z-10 gap-3">
           <div class="flex items-center gap-3 w-full sm:w-auto flex-1">
             @if (activeTag()) {
               <button
                 (click)="wishlistSvc.toggleTag(activeTag()!)"
-                class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0"
+                class="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-1.5 shrink-0 hover:bg-primary/25 transition-all"
               >
                 #{{ activeTag() }}
-                <svg
-                  class="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <svg lucideX class="w-3 h-3"></svg>
               </button>
             }
             <div class="flex-1 relative max-w-sm w-full">
-              <svg
-                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              <svg lucideSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"></svg>
               <input
                 type="text"
                 [(ngModel)]="searchQuery"
@@ -568,11 +114,7 @@ import {
               "
               title="Grid View"
             >
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                  d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"
-                />
-              </svg>
+              <svg lucideLayoutGrid class="w-4 h-4"></svg>
             </button>
             <!-- List Layout Toggle -->
             <button
@@ -584,11 +126,10 @@ import {
               "
               title="List View"
             >
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
-              </svg>
+              <svg lucideList class="w-4 h-4"></svg>
             </button>
 
+            <!-- Sort dropdown -->
             <div class="relative flex-1 sm:flex-initial">
               <select
                 (change)="onSort($event)"
@@ -607,24 +148,17 @@ import {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
-                />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
           </div>
         </div>
 
-        <!-- Feed (Posts) -->
+        <!-- Wishlist Stream -->
         <div class="bg-card">
-          <!-- Loading -->
+          <!-- Loading State Shimmer -->
           @if (loading()) {
-            <div
-              class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-            >
+            <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               @for (i of [1, 2, 3, 4, 5]; track i) {
                 <div class="border border-border rounded-xl overflow-hidden">
                   <div class="flex items-center gap-3 p-3">
@@ -641,14 +175,10 @@ import {
             </div>
           }
 
-          <!-- Empty -->
+          <!-- Empty State -->
           @if (!loading() && filteredItems().length === 0) {
-            <div
-              class="flex flex-col items-center justify-center py-24 text-center"
-            >
-              <div
-                class="w-24 h-24 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mb-6"
-              >
+            <div class="flex flex-col items-center justify-center py-24 text-center">
+              <div class="w-24 h-24 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mb-6">
                 <svg
                   class="w-10 h-10 text-muted-foreground/50"
                   fill="none"
@@ -672,7 +202,7 @@ import {
             </div>
           }
 
-          <!-- Post Stream -->
+          <!-- Item Grid/List -->
           @if (!loading() && filteredItems().length > 0) {
             <div
               [class]="
@@ -716,7 +246,7 @@ import {
         </div>
       </main>
 
-      <!-- Add/Edit Modal -->
+      <!-- Add/Edit Modal Component -->
       @if (showAddModal()) {
         <app-add-item-modal
           [editItem]="editingItem()"
@@ -725,7 +255,7 @@ import {
         />
       }
 
-      <!-- Price History Modal -->
+      <!-- Price History Modal Component -->
       @if (historyItemId()) {
         <app-price-history-modal
           [itemId]="historyItemId()!"
@@ -733,7 +263,7 @@ import {
         />
       }
 
-      <!-- Group Name Modal -->
+      <!-- Group Name Modal Component -->
       @if (pendingGroupItemIds()) {
         <app-group-name-modal
           (confirmed)="onGroupNameConfirmed($event)"
@@ -741,48 +271,16 @@ import {
         />
       }
 
-      <!-- Quick Add Modal -->
+      <!-- Quick Add Modal Component -->
       @if (showQuickAdd()) {
-        <div class="modal-overlay" (click)="showQuickAdd.set(false)">
-          <div
-            class="modal-content max-w-sm"
-            (click)="$event.stopPropagation()"
-          >
-            <h2 class="text-lg font-display font-bold text-foreground mb-4">
-              Quick Add
-            </h2>
-            <form (ngSubmit)="onQuickAdd()">
-              <input
-                type="url"
-                [(ngModel)]="quickAddUrl"
-                name="quickAddUrl"
-                placeholder="Paste a product link"
-                class="input mb-4"
-                [disabled]="quickAdding()"
-                required
-              />
-              <div class="flex gap-3">
-                <button
-                  type="button"
-                  (click)="showQuickAdd.set(false)"
-                  class="btn-secondary btn-md flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  class="btn-primary btn-md flex-1"
-                  [disabled]="!quickAddUrl || quickAdding()"
-                >
-                  {{ quickAdding() ? 'Adding...' : 'Add' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <app-quick-add-modal
+          [quickAdding]="quickAdding()"
+          (close)="showQuickAdd.set(false)"
+          (add)="onQuickAdd($event)"
+        />
       }
 
-      <!-- Toasts -->
+      <!-- Toasts Container -->
       <div class="fixed bottom-20 md:bottom-6 right-6 z-[100] space-y-2">
         @for (toast of toastSvc.toasts(); track toast.id) {
           <div
@@ -1021,7 +519,6 @@ export class DashboardComponent implements OnInit {
     const next = !this.isDark();
     this.isDark.set(next);
     document.documentElement.classList.toggle('dark', next);
-    // Persist preference in a cookie (365-day rolling, not security-sensitive)
     this.cookieSvc.set('ww-dark', String(next), {
       expires: 365,
       sameSite: 'Lax',
@@ -1093,18 +590,16 @@ export class DashboardComponent implements OnInit {
     e.preventDefault();
     const draggedId = e.dataTransfer?.getData('text/plain');
     if (!draggedId) return;
-    // Bubbles here only when dropped on empty grid space (cards/group tiles
-    // stop propagation), so this is "drag it out" to leave its group.
     const { error } = await this.wishlistSvc.removeFromGroup(draggedId);
     if (error) this.toastSvc.error('Could not remove from group');
   }
 
-  async onQuickAdd() {
-    if (!this.quickAddUrl) return;
-    const url = this.quickAddUrl;
+  async onQuickAdd(url?: string) {
+    const targetUrl = url || this.quickAddUrl;
+    if (!targetUrl) return;
     this.quickAdding.set(true);
     const { data, error } = await this.wishlistSvc.addItem({
-      product_url: url,
+      product_url: targetUrl,
     });
     this.quickAdding.set(false);
     if (error) {
@@ -1114,14 +609,9 @@ export class DashboardComponent implements OnInit {
     this.quickAddUrl = '';
     this.showQuickAdd.set(false);
 
-    // Sites we can't scrape server-side (Nykaa/Meesho/Instamart) rely on the
-    // browser extension — ask it to fetch this item right away instead of
-    // waiting for its next periodic cycle (up to 8h later). No-ops silently
-    // if the extension isn't installed; the item still shows up blank-ish
-    // and gets filled in whenever the extension does eventually run.
-    if (data && isBlockedPlatformUrl(url)) {
+    if (data && isBlockedPlatformUrl(targetUrl)) {
       this.toastSvc.success('Added! Asking your browser extension for details...');
-      this.extensionBridge.fetchItemNow(url, data.id).then((result) => {
+      this.extensionBridge.fetchItemNow(targetUrl, data.id).then((result) => {
         if (result?.updated) {
           this.toastSvc.success('Product details fetched!');
         }

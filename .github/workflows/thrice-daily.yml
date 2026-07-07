@@ -1,7 +1,7 @@
 name: WillowWish 3x Daily Check Engine
 on:
   schedule:
-    - cron: '0 */8 * * *' # Executes precisely every 8 hours
+    - cron: "0 */8 * * *" # Executes precisely every 8 hours
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
       - name: Initialize Runtime Node environment
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Create package.json and install dependencies
         run: |
           echo '{"dependencies":{"@supabase/supabase-js":"^2","axios":"^1","cheerio":"^1"}}' > package.json
@@ -25,7 +25,7 @@ jobs:
           node -e "
           const { createClient } = require('@supabase/supabase-js');
           const axios = require('axios');
-          
+
           const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
           async function job() {
