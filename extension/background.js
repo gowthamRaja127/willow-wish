@@ -86,11 +86,11 @@ async function runRefreshCycle() {
   const session = await ensureFreshSession()
   if (!session) {
     console.log('[WillowWish] Not logged in — skipping refresh cycle.')
-    return { checked: 0, updated: 0, loggedIn: false }
+    return { checked: 0, updated: 0, loggedIn: false, details: [] }
   }
 
   const items = await supabaseFetch(
-    '/rest/v1/items?select=id,product_url&is_purchased=eq.false',
+    '/rest/v1/items?select=id,product_url,product_name&is_purchased=eq.false',
     { method: 'GET' },
     session
   )
@@ -99,21 +99,28 @@ async function runRefreshCycle() {
   console.log(`[WillowWish] ${targets.length} blocked-platform item(s) to refresh.`)
 
   let updated = 0
+  // Per-item outcome, surfaced in the popup so a user can actually see
+  // *which* item failed and why instead of only an aggregate count.
+  const details = []
   for (const item of targets) {
+    const name = item.product_name || 'Unnamed item'
     try {
       const result = await refreshItemViaServer(item.product_url, item.id)
       if (result.updated) {
         updated++
+        details.push({ name, updated: true })
       } else {
         console.log('[WillowWish] Nothing usable extracted for item', item.id, result.reason)
+        details.push({ name, updated: false, reason: result.reason || 'nothing_extracted' })
       }
     } catch (e) {
       console.log('[WillowWish] Failed to refresh item', item.id, e)
+      details.push({ name, updated: false, reason: 'error' })
     }
     await sleep(DELAY_BETWEEN_ITEMS_MS)
   }
 
-  return { checked: targets.length, updated, loggedIn: true }
+  return { checked: targets.length, updated, loggedIn: true, details }
 }
 
 async function extractFromLiveTab(url) {

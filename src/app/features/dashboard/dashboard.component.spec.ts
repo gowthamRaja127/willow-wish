@@ -13,8 +13,9 @@ describe('DashboardComponent.onQuickAdd', () => {
   beforeEach(() => {
     wishlistSvc = jasmine.createSpyObj('WishlistService', ['addItem']);
     toastSvc = jasmine.createSpyObj('ToastService', ['success', 'error', 'info']);
-    extensionBridge = jasmine.createSpyObj('ExtensionBridgeService', ['fetchItemNow']);
+    extensionBridge = jasmine.createSpyObj('ExtensionBridgeService', ['fetchItemNow', 'isInstalled']);
     extensionBridge.fetchItemNow.and.returnValue(Promise.resolve(null));
+    extensionBridge.isInstalled.and.returnValue(Promise.resolve(true));
 
     component = new DashboardComponent(
       wishlistSvc,
@@ -24,6 +25,7 @@ describe('DashboardComponent.onQuickAdd', () => {
       {} as any, // CookieService — unused by onQuickAdd
       {} as any, // ShareService — unused by onQuickAdd
       extensionBridge,
+      {} as any, // ConfirmDialogService — unused by onQuickAdd
     );
   });
 
@@ -68,7 +70,7 @@ describe('DashboardComponent.onQuickAdd', () => {
     expect(toastSvc.success).toHaveBeenCalledWith('Product details fetched!');
   });
 
-  it('does nothing extra when the extension is not installed (bridge resolves null)', async () => {
+  it('does nothing extra when the extension is installed but does not respond in time', async () => {
     component.quickAddUrl = 'https://www.nykaa.com/some-product/p/999';
     wishlistSvc.addItem.and.returnValue(Promise.resolve({ data: { id: 'item-4' }, error: null }));
     extensionBridge.fetchItemNow.and.returnValue(Promise.resolve(null));
@@ -79,17 +81,31 @@ describe('DashboardComponent.onQuickAdd', () => {
     expect(toastSvc.success).toHaveBeenCalledWith('Added! Asking your browser extension for details...');
     expect(toastSvc.success).not.toHaveBeenCalledWith('Product details fetched!');
   });
+
+  it('skips fetchItemNow entirely and prompts to install when the extension is not installed', async () => {
+    component.quickAddUrl = 'https://www.nykaa.com/some-product/p/1000';
+    wishlistSvc.addItem.and.returnValue(Promise.resolve({ data: { id: 'item-5' }, error: null }));
+    extensionBridge.isInstalled.and.returnValue(Promise.resolve(false));
+
+    await component.onQuickAdd();
+
+    expect(extensionBridge.fetchItemNow).not.toHaveBeenCalled();
+    expect(toastSvc.success).toHaveBeenCalledWith(
+      'Added! This site needs the Willow Wish extension to auto-fetch details — install it, or edit the item to add them manually.'
+    );
+  });
 });
 
 describe('DashboardComponent.signOut', () => {
   let component: DashboardComponent;
   let supabaseSvc: jasmine.SpyObj<any>;
   let router: jasmine.SpyObj<any>;
+  let confirmSvc: jasmine.SpyObj<any>;
 
   beforeEach(() => {
     supabaseSvc = jasmine.createSpyObj('SupabaseService', ['signOut']);
     router = jasmine.createSpyObj('Router', ['navigate']);
-    spyOn(window, 'confirm');
+    confirmSvc = jasmine.createSpyObj('ConfirmDialogService', ['confirm']);
 
     component = new DashboardComponent(
       {} as any, // WishlistService
@@ -98,27 +114,28 @@ describe('DashboardComponent.signOut', () => {
       router,
       {} as any, // CookieService
       {} as any, // ShareService
-      {} as any  // ExtensionBridgeService
+      {} as any, // ExtensionBridgeService
+      confirmSvc,
     );
   });
 
   it('calls supabase signOut and navigates to login if user confirms', async () => {
-    (window.confirm as jasmine.Spy).and.returnValue(true);
+    confirmSvc.confirm.and.returnValue(Promise.resolve(true));
     supabaseSvc.signOut.and.returnValue(Promise.resolve({ error: null }));
 
     await component.signOut();
 
-    expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to log out?');
+    expect(confirmSvc.confirm).toHaveBeenCalledWith('Are you sure you want to log out?', jasmine.any(Object));
     expect(supabaseSvc.signOut).toHaveBeenCalled();
     expect(router.navigate).toHaveBeenCalledWith(['/auth/login']);
   });
 
   it('does not log out if user cancels', async () => {
-    (window.confirm as jasmine.Spy).and.returnValue(false);
+    confirmSvc.confirm.and.returnValue(Promise.resolve(false));
 
     await component.signOut();
 
-    expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to log out?');
+    expect(confirmSvc.confirm).toHaveBeenCalledWith('Are you sure you want to log out?', jasmine.any(Object));
     expect(supabaseSvc.signOut).not.toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
   });

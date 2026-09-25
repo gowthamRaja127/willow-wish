@@ -4,13 +4,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom/deno-dom-wasm.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendNotification } from '../_shared/notify.ts'
 
 declare const Deno: any;
+
+export { sendNotification }
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const RESCRAPE_COOLDOWN_MS = 60_000
 
 // Blocks obviously-internal/private targets so scraping "any product link" can't be
 // used to reach internal services or cloud metadata endpoints (SSRF). This is a
@@ -85,8 +90,9 @@ export function extractJsonLdProduct(doc: any): { name?: string; image?: string;
  * Returns 0 if nothing is found.
  */
 export function extractPrice(doc: any): number {
-  // Standard Open Graph
-  const ogPrice = doc.querySelector('meta[property="og:price:amount"]')?.getAttribute('content')
+  // Standard Open Graph (og:price:amount, and product:price:amount which
+  // some storefronts emit instead/as well)
+  const ogPrice = doc.querySelector('meta[property="og:price:amount"], meta[property="product:price:amount"]')?.getAttribute('content')
   if (ogPrice) {
     const n = parseFloat(ogPrice.replace(/[^0-9.]/g, ''))
     if (n > 0) return n
@@ -119,6 +125,19 @@ export function extractPrice(doc: any): number {
   const jsonLd = extractJsonLdProduct(doc)
   if (jsonLd?.price) return jsonLd.price
 
+  // Generic fallback: schema.org Microdata (itemprop="price") — the same
+  // schema.org Product vocabulary as the JSON-LD case above, just marked up
+  // as element attributes instead of a <script> block. Covers storefronts
+  // that emit Microdata instead of (or in addition to) JSON-LD.
+  const microdataPriceEl = doc.querySelector('[itemprop="price"]')
+  if (microdataPriceEl) {
+    const raw = microdataPriceEl.getAttribute('content') ?? microdataPriceEl.innerText
+    if (raw) {
+      const n = parseFloat(String(raw).replace(/[^0-9.]/g, ''))
+      if (n > 0) return n
+    }
+  }
+
   return 0
 }
 
@@ -147,100 +166,18 @@ export function extractImage(doc: any): string | null {
   const twitterImg = doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
   if (twitterImg) return twitterImg
 
+  // Generic fallback: schema.org Microdata image, or the classic
+  // <link rel="image_src"> hint some older/simpler storefronts still emit.
+  const microdataImg = doc.querySelector('[itemprop="image"]')?.getAttribute('src')
+    ?? doc.querySelector('[itemprop="image"]')?.getAttribute('content')
+  if (microdataImg) return microdataImg
+
+  const linkImg = doc.querySelector('link[rel="image_src"]')?.getAttribute('href')
+  if (linkImg) return linkImg
+
   return null
 }
 
-/**
- * Send notification (email/whatsapp) when price drops.
- */
-export async function sendNotification(
-  userEmail: string,
-  userWhatsapp: string | null,
-  itemName: string,
-  oldPrice: number,
-  newPrice: number,
-  isTargetMet: boolean = false
-) {
-  const alertType = isTargetMet ? "🎯 Target Price Reached" : "🚨 Price Drop Alert";
-  console.log(`[NOTIFICATION] ${alertType} for "${itemName}"! Notifying ${userEmail}. Old: ₹${oldPrice}, New: ₹${newPrice}`);
-
-  // 1. Resend Email Integration
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  if (resendKey && userEmail) {
-    try {
-      const subject = isTargetMet 
-        ? `🎯 Target Met: ${itemName} is now ₹${newPrice}!`
-        : `🚨 Price Dropped: ${itemName} is now ₹${newPrice}!`;
-
-      const html = `
-        <h3>${alertType}!</h3>
-        <p>Your item <strong>${itemName}</strong> price changed:</p>
-        <ul>
-          <li>Previous Price: ₹${oldPrice}</li>
-          <li><strong>New Price: ₹${newPrice}</strong></li>
-        </ul>
-        <p>Check it out now! <a href="https://willowwish.dev">Go to WillowWish</a></p>
-      `;
-
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${resendKey}`,
-        },
-        body: JSON.stringify({
-          // Falls back to Resend's default sender until willowwish.dev is
-          // verified at resend.com/domains — switch back once it is.
-          from: 'WillowWish <onboarding@resend.dev>',
-          to: userEmail,
-          subject,
-          html,
-        }),
-      });
-      console.log(`Resend response status: ${res.status}`);
-    } catch (e) {
-      console.error('Failed to send email notification:', e);
-    }
-  }
-
-  // 2. Twilio WhatsApp Integration
-  const twilioSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const twilioAuth = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const twilioFrom = Deno.env.get('TWILIO_WHATSAPP_FROM') || 'whatsapp:+14155238886';
-  
-  // Try user's metadata whatsapp first; fallback to TWILIO_WHATSAPP_TO
-  const rawTo = userWhatsapp || Deno.env.get('TWILIO_WHATSAPP_TO');
-
-  if (twilioSid && twilioAuth && rawTo) {
-    try {
-      const basicAuth = btoa(`${twilioSid}:${twilioAuth}`);
-      const bodyText = isTargetMet
-        ? `🎯 Target Met: "${itemName}" reached your target price! It is now ₹${newPrice} (was ₹${oldPrice}).`
-        : `🚨 Price Drop: "${itemName}" dropped from ₹${oldPrice} to ₹${newPrice}!`;
-
-      // Format recipient: ensure it starts with "whatsapp:"
-      const formattedTo = rawTo.startsWith('whatsapp:') 
-        ? rawTo 
-        : `whatsapp:${rawTo.startsWith('+') ? rawTo : '+' + rawTo}`;
-
-      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${basicAuth}`,
-        },
-        body: new URLSearchParams({
-          From: twilioFrom,
-          To: formattedTo,
-          Body: bodyText,
-        }),
-      });
-      console.log(`Twilio WhatsApp response status for ${formattedTo}: ${res.status}`);
-    } catch (e) {
-      console.error('Failed to send WhatsApp notification:', e);
-    }
-  }
-}
 
 /**
  * Download the scraped image and re-host it in Supabase Storage (free tier)
@@ -475,12 +412,23 @@ export async function applyItemUpdate(
 
   const { data: existing } = await supabase
     .from('items')
-    .select('user_id, product_name, initial_price, current_price, target_price, is_notified, is_purchased')
+    .select('user_id, product_name, initial_price, current_price, target_price, is_notified, is_purchased, last_scraped_at')
     .eq('id', itemId)
     .single()
 
   if (!existing || (!isServiceCaller && existing.user_id !== callerId)) {
     return { error: 'Forbidden', status: 403 }
+  }
+
+  // Rate-limit user-invoked rescrapes so a client can't hammer this item (and
+  // in turn the target retailer / our notification providers) in a tight
+  // loop. The scheduled service-role sweep is exempt — it already paces
+  // itself with its own per-item delay in the GitHub Actions job.
+  if (!isServiceCaller && existing.last_scraped_at) {
+    const msSinceLastScrape = Date.now() - new Date(existing.last_scraped_at).getTime()
+    if (msSinceLastScrape < RESCRAPE_COOLDOWN_MS) {
+      return { error: 'Please wait a moment before refreshing this item again', status: 429 }
+    }
   }
 
   const patch: Record<string, any> = { last_scraped_at: new Date() }

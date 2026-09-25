@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -13,6 +13,7 @@ import { GroupTileComponent } from '../wishlist/group-tile/group-tile.component'
 import { GroupNameModalComponent } from '../wishlist/group-name-modal/group-name-modal.component';
 import { ShareService } from '../../core/services/share.service';
 import { ExtensionBridgeService } from '../../core/services/extension-bridge.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { isBlockedPlatformUrl } from '../../core/utils/blocked-platforms';
 import { WishlistItem, SortBy, FilterBy } from '../../core/models/wishlist.model';
 
@@ -21,9 +22,13 @@ import { SidebarComponent } from './components/sidebar/sidebar.component';
 import { HeaderComponent } from './components/header/header.component';
 import { StatsComponent } from './components/stats/stats.component';
 import { QuickAddModalComponent } from '../wishlist/quick-add-modal/quick-add-modal.component';
+import { BulkReminderModalComponent } from '../wishlist/bulk-reminder-modal/bulk-reminder-modal.component';
 
 // External Package Icons
-import { LucideSearch, LucideLayoutGrid, LucideList, LucideX } from '@lucide/angular';
+import {
+  LucideSearch, LucideLayoutGrid, LucideList, LucideX,
+  LucideTrash2, LucideShare2, LucideMoreVertical, LucideCalendarClock, LucideShoppingBag
+} from '@lucide/angular';
 
 @Component({
   selector: 'app-dashboard',
@@ -40,10 +45,16 @@ import { LucideSearch, LucideLayoutGrid, LucideList, LucideX } from '@lucide/ang
     HeaderComponent,
     StatsComponent,
     QuickAddModalComponent,
+    BulkReminderModalComponent,
     LucideSearch,
     LucideLayoutGrid,
     LucideList,
-    LucideX
+    LucideX,
+    LucideTrash2,
+    LucideShare2,
+    LucideMoreVertical,
+    LucideCalendarClock,
+    LucideShoppingBag
   ],
   template: `
     <div class="min-h-screen bg-background text-foreground pb-16 md:pb-0 md:pl-20 lg:pl-64 flex">
@@ -51,12 +62,9 @@ import { LucideSearch, LucideLayoutGrid, LucideList, LucideX } from '@lucide/ang
       <app-sidebar
         [filterBy]="filterBy()"
         [userInitial]="userInitial()"
-        [sharingWishlist]="sharingWishlist()"
         (filterChanged)="setFilter($event)"
         (addModalOpened)="showAddModal.set(true)"
         (quickAddOpened)="showQuickAdd.set(true)"
-        (shareWishlist)="onShareWishlist()"
-        (regenerateShare)="onRegenerateWishlistShare()"
         (signOut)="signOut()"
       />
 
@@ -280,6 +288,72 @@ import { LucideSearch, LucideLayoutGrid, LucideList, LucideX } from '@lucide/ang
         />
       }
 
+      <!-- Selection Toolbar (Google-Photos style) -->
+      @if (wishlistSvc.selectionMode()) {
+        <div class="fixed top-0 left-0 right-0 md:left-20 lg:left-64 z-40 bg-card border-b border-border shadow-card-hover px-4 py-3 flex items-center gap-3">
+          <button (click)="wishlistSvc.clearSelection()" class="btn-ghost btn-icon" title="Cancel selection">
+            <svg lucideX class="w-5 h-5"></svg>
+          </button>
+          <span class="text-sm font-semibold text-foreground whitespace-nowrap">
+            {{ wishlistSvc.selectedIds().size }} selected
+          </span>
+          <div class="ml-auto flex items-center gap-1">
+            <button
+              (click)="onBulkDelete()"
+              [disabled]="bulkBusy()"
+              class="btn-ghost btn-icon text-destructive"
+              title="Delete selected"
+            >
+              <svg lucideTrash2 class="w-5 h-5"></svg>
+            </button>
+            <button
+              (click)="onBulkShare()"
+              [disabled]="bulkBusy()"
+              class="btn-ghost btn-icon"
+              title="Share selected"
+            >
+              <svg lucideShare2 class="w-5 h-5"></svg>
+            </button>
+            <div class="relative action-menu-container">
+              <button
+                (click)="toggleMoreMenu($event)"
+                [disabled]="bulkBusy()"
+                class="btn-ghost btn-icon"
+                title="More options"
+              >
+                <svg lucideMoreVertical class="w-5 h-5"></svg>
+              </button>
+              @if (showMoreMenu()) {
+                <div class="absolute right-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-card-hover py-1 z-20 text-sm">
+                  <button
+                    (click)="openBulkReminder()"
+                    class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2"
+                  >
+                    <svg lucideCalendarClock class="w-4 h-4 text-muted-foreground"></svg>
+                    Edit date and time
+                  </button>
+                  <button
+                    (click)="onBulkMarkPurchased()"
+                    class="flex items-center w-full px-3 py-2 hover:bg-muted text-foreground transition-colors gap-2"
+                  >
+                    <svg lucideShoppingBag class="w-4 h-4 text-muted-foreground"></svg>
+                    Mark as Purchased
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Bulk Reminder Modal -->
+      @if (showBulkReminderModal()) {
+        <app-bulk-reminder-modal
+          (applied)="onBulkReminderApplied($event)"
+          (close)="showBulkReminderModal.set(false)"
+        />
+      }
+
       <!-- Toasts Container -->
       <div class="fixed bottom-20 md:bottom-6 right-6 z-[100] space-y-2">
         @for (toast of toastSvc.toasts(); track toast.id) {
@@ -367,7 +441,9 @@ export class DashboardComponent implements OnInit {
   showQuickAdd = signal(false);
   quickAdding = signal(false);
   quickAddUrl = '';
-  sharingWishlist = signal(false);
+  bulkBusy = signal(false);
+  showMoreMenu = signal(false);
+  showBulkReminderModal = signal(false);
   isDark = signal(false);
   viewMode = signal<'grid' | 'list'>('grid');
   searchQuery = '';
@@ -383,6 +459,7 @@ export class DashboardComponent implements OnInit {
     private cookieSvc: CookieService,
     private shareSvc: ShareService,
     private extensionBridge: ExtensionBridgeService,
+    private confirmSvc: ConfirmDialogService,
   ) {}
 
   get filteredItems() {
@@ -494,7 +571,7 @@ export class DashboardComponent implements OnInit {
 
   async saveWhatsappNumber() {
     if (!this.whatsappNumber) {
-      this.toastSvc.error('Please enter a valid phone number');
+      this.toastSvc.error('Please enter a valid phone number.');
       return;
     }
     this.savingWhatsapp.set(true);
@@ -503,7 +580,7 @@ export class DashboardComponent implements OnInit {
     });
     this.savingWhatsapp.set(false);
     if (error) {
-      this.toastSvc.error(error.message || 'Could not save number');
+      this.toastSvc.error(error.message || "Couldn't save your WhatsApp number.");
     } else {
       this.toastSvc.success('WhatsApp updates configured successfully!');
       this.editingWhatsapp.set(false);
@@ -555,7 +632,8 @@ export class DashboardComponent implements OnInit {
       this.wishlistSvc
         .addToGroup(targetItem.group_id, [draggedId])
         .then(({ error }) => {
-          if (error) this.toastSvc.error('Could not add to group');
+          if (error) this.toastSvc.error("Couldn't add the item to the group.");
+          else this.toastSvc.success('Item added to the group.');
         });
       return;
     }
@@ -564,7 +642,8 @@ export class DashboardComponent implements OnInit {
 
   onDroppedOnGroup(draggedId: string, groupId: string) {
     this.wishlistSvc.addToGroup(groupId, [draggedId]).then(({ error }) => {
-      if (error) this.toastSvc.error('Could not add to group');
+      if (error) this.toastSvc.error("Couldn't add the item to the group.");
+      else this.toastSvc.success('Item added to the group.');
     });
   }
 
@@ -573,13 +652,14 @@ export class DashboardComponent implements OnInit {
     this.pendingGroupItemIds.set(null);
     if (!ids) return;
     const { error } = await this.wishlistSvc.createGroup(name, ids);
-    if (error) this.toastSvc.error('Could not create group');
-    else this.toastSvc.success(`Grouped into "${name}"`);
+    if (error) this.toastSvc.error("Couldn't create the group.");
+    else this.toastSvc.success(`Grouped into "${name}".`);
   }
 
   async onRemoveFromGroup(itemId: string) {
-    const { error } = await this.wishlistSvc.removeFromGroup(itemId);
-    if (error) this.toastSvc.error('Could not remove from group');
+    const { error, removed } = await this.wishlistSvc.removeFromGroup(itemId);
+    if (error) this.toastSvc.error("Couldn't remove the item from the group.");
+    else if (removed) this.toastSvc.success('Item removed from the group.');
   }
 
   onGridDragOver(e: DragEvent) {
@@ -590,8 +670,9 @@ export class DashboardComponent implements OnInit {
     e.preventDefault();
     const draggedId = e.dataTransfer?.getData('text/plain');
     if (!draggedId) return;
-    const { error } = await this.wishlistSvc.removeFromGroup(draggedId);
-    if (error) this.toastSvc.error('Could not remove from group');
+    const { error, removed } = await this.wishlistSvc.removeFromGroup(draggedId);
+    if (error) this.toastSvc.error("Couldn't remove the item from the group.");
+    else if (removed) this.toastSvc.success('Item removed from the group.');
   }
 
   async onQuickAdd(url?: string) {
@@ -603,41 +684,106 @@ export class DashboardComponent implements OnInit {
     });
     this.quickAdding.set(false);
     if (error) {
-      this.toastSvc.error('Could not add item: ' + (error.message ?? error));
+      this.toastSvc.error("Couldn't add the item: " + (error.message ?? error));
       return;
     }
     this.quickAddUrl = '';
     this.showQuickAdd.set(false);
 
     if (data && isBlockedPlatformUrl(targetUrl)) {
-      this.toastSvc.success('Added! Asking your browser extension for details...');
-      this.extensionBridge.fetchItemNow(targetUrl, data.id).then((result) => {
-        if (result?.updated) {
-          this.toastSvc.success('Product details fetched!');
-        }
-      });
+      // Check install status first (~1.5s via PING/PONG) instead of jumping
+      // straight to fetchItemNow's up-to-25s timeout — most visitors don't
+      // have the extension, so this avoids a long silent wait for them.
+      const installed = await this.extensionBridge.isInstalled();
+      if (installed) {
+        this.toastSvc.success('Added! Asking your browser extension for details...');
+        this.extensionBridge.fetchItemNow(targetUrl, data.id).then((result) => {
+          if (result?.updated) {
+            this.toastSvc.success('Product details fetched!');
+          }
+        });
+      } else {
+        this.toastSvc.success('Added! This site needs the Willow Wish extension to auto-fetch details — install it, or edit the item to add them manually.');
+      }
     } else {
       this.toastSvc.success('Added! Fetching product details...');
     }
   }
 
-  async onShareWishlist() {
-    this.sharingWishlist.set(true);
-    const { token, error } = await this.shareSvc.getWishlistShareToken();
-    this.sharingWishlist.set(false);
+  toggleMoreMenu(e: MouseEvent) {
+    e.stopPropagation();
+    this.showMoreMenu.update(v => !v);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.action-menu-container')) {
+      this.showMoreMenu.set(false);
+    }
+  }
+
+  async onBulkShare() {
+    const selectedIds = [...this.wishlistSvc.selectedIds()];
+    if (selectedIds.length === 0) return;
+    this.bulkBusy.set(true);
+    const { token, error } = await this.shareSvc.getWishlistShareToken(selectedIds);
+    this.bulkBusy.set(false);
+    this.wishlistSvc.clearSelection();
     await this.copyWishlistShareLink(token, error);
   }
 
-  async onRegenerateWishlistShare() {
-    this.sharingWishlist.set(true);
-    const { token, error } = await this.shareSvc.regenerateWishlistShareToken();
-    this.sharingWishlist.set(false);
-    await this.copyWishlistShareLink(token, error);
+  async onBulkDelete() {
+    const selectedIds = [...this.wishlistSvc.selectedIds()];
+    if (selectedIds.length === 0) return;
+    const confirmed = await this.confirmSvc.confirm(
+      `Are you sure you want to delete ${selectedIds.length} item${selectedIds.length === 1 ? '' : 's'}?`,
+      { confirmLabel: 'Delete', destructive: true }
+    );
+    if (!confirmed) return;
+
+    this.bulkBusy.set(true);
+    const { error } = await this.wishlistSvc.bulkDelete(selectedIds);
+    this.bulkBusy.set(false);
+    this.wishlistSvc.clearSelection();
+    if (error) this.toastSvc.error("Couldn't delete the selected items.");
+    else this.toastSvc.success(`${selectedIds.length} item${selectedIds.length === 1 ? '' : 's'} deleted.`);
+  }
+
+  async onBulkMarkPurchased() {
+    const selectedIds = [...this.wishlistSvc.selectedIds()];
+    if (selectedIds.length === 0) return;
+    this.showMoreMenu.set(false);
+
+    this.bulkBusy.set(true);
+    const { error } = await this.wishlistSvc.bulkMarkPurchased(selectedIds);
+    this.bulkBusy.set(false);
+    this.wishlistSvc.clearSelection();
+    if (error) this.toastSvc.error("Couldn't update the selected items.");
+    else this.toastSvc.success('Selected items marked as purchased!');
+  }
+
+  openBulkReminder() {
+    this.showMoreMenu.set(false);
+    this.showBulkReminderModal.set(true);
+  }
+
+  async onBulkReminderApplied(targetPurchaseDate: string | null) {
+    const selectedIds = [...this.wishlistSvc.selectedIds()];
+    this.showBulkReminderModal.set(false);
+    if (selectedIds.length === 0) return;
+
+    this.bulkBusy.set(true);
+    const { error } = await this.wishlistSvc.bulkSetReminder(selectedIds, targetPurchaseDate);
+    this.bulkBusy.set(false);
+    this.wishlistSvc.clearSelection();
+    if (error) this.toastSvc.error("Couldn't update the reminder.");
+    else this.toastSvc.success(targetPurchaseDate ? 'Reminder updated!' : 'Reminder cleared.');
   }
 
   private async copyWishlistShareLink(token: string | null, error: any) {
     if (error || !token) {
-      this.toastSvc.error('Could not create share link');
+      this.toastSvc.error("Couldn't create the share link.");
       return;
     }
     const url = `${window.location.origin}/shared/list/${token}`;
@@ -657,7 +803,11 @@ export class DashboardComponent implements OnInit {
   }
 
   async signOut() {
-    if (confirm('Are you sure you want to log out?')) {
+    const confirmed = await this.confirmSvc.confirm('Are you sure you want to log out?', {
+      confirmLabel: 'Log out',
+      destructive: true,
+    });
+    if (confirmed) {
       await this.sb.signOut();
       this.router.navigate(['/auth/login']);
     }

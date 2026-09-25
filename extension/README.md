@@ -49,11 +49,14 @@ does the actual database write. The extension itself never writes to the
 database directly: `price_history` in particular has no RLS policy
 allowing regular users to insert into it (only the service-role-backed
 edge function can), so routing through that one "service" for every
-write keeps this simple and avoids duplicating permission logic. If the
-extension isn't installed, isn't synced yet, or doesn't respond within
-~25s, the website just silently falls back to the normal behavior
-(server-side scrape attempt + the extension's next periodic run whenever
-it happens).
+write keeps this simple and avoids duplicating permission logic. The
+website first checks whether the extension is installed at all via a
+PING/PONG handshake (~1.5s) — if that gets no reply, it skips straight to
+the normal fallback (server-side scrape attempt + the extension's next
+periodic run whenever it happens) instead of waiting out the full ~25s
+`FETCH_ITEM_NOW` timeout. If the extension *is* installed but isn't
+synced yet or doesn't respond within that longer timeout, the same
+fallback applies.
 
 ## Load it locally
 
@@ -66,6 +69,15 @@ it happens).
 
 ## Known limitations / things to verify live
 
+- The extraction fallback chain now also checks `product:price:amount`
+  (meta), schema.org Microdata (`itemprop="price"`/`itemprop="image"`),
+  and `<link rel="image_src">`, in addition to JSON-LD and the
+  site-specific selectors — this improves coverage for storefronts that
+  don't use JSON-LD, but doesn't replace the need for a real site-specific
+  selector when a platform's markup doesn't follow any of these standards.
+- The popup now shows a per-item breakdown (name + outcome) for the last
+  refresh cycle, not just an aggregate count — check it after a manual
+  "Refresh now" to see exactly which items failed and why.
 - **Flipkart and Myntra** already have verified selectors/JSON-LD handling
   in `content-extract.js` (confirmed against real page content from a
   non-flagged IP) — they should work well once running in your actual
