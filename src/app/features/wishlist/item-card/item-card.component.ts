@@ -943,12 +943,17 @@ export class ItemCardComponent {
   async confirmDelete(e: MouseEvent) {
     e.stopPropagation();
     this.showActionsMenu.set(false);
-    const itemName = this.item.product_name || 'this item';
+    const itemName = this.truncateForDialog(this.item.product_name || 'this item');
     const confirmed = await this.confirmSvc.confirm(`Are you sure you want to delete "${itemName}"?`, {
       confirmLabel: 'Delete',
       destructive: true,
     });
     if (confirmed) this.onDelete();
+  }
+
+  /** Keeps long product names from overflowing the confirm dialog. */
+  private truncateForDialog(text: string, maxLength = 60): string {
+    return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}…` : text;
   }
 
   onEdit(e: MouseEvent) {
