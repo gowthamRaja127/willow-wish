@@ -5,6 +5,7 @@ import {
   WishlistItem, AddItemPayload, UpdateItemPayload,
   PriceHistoryEntry, WishlistStats, SortBy, FilterBy, ItemGroup
 } from '../models/wishlist.model';
+import { isBlockedPlatformUrl } from '../utils/blocked-platforms';
 
 export type WishlistTile =
   | { type: 'item'; item: WishlistItem }
@@ -289,21 +290,30 @@ export class WishlistService {
       if (error) throw error;
       if (data) {
         this._items.update(items => [data, ...items]);
-        // Fire-and-forget scrape: enriches image/price/title in background
-        this.scrapeProduct(payload.product_url, data.id).then(enriched => {
-          if (enriched) {
-            this._items.update(items =>
-              items.map(i => i.id === data.id ? {
-                ...i,
-                image_url: enriched.image ?? i.image_url,
-                product_name: enriched.title ?? i.product_name,
-                description: enriched.desc ?? i.description,
-                current_price: enriched.price ?? i.current_price,
-                initial_price: i.initial_price ?? enriched.price ?? null,
-              } : i)
-            );
-          }
-        });
+        // Fire-and-forget scrape: enriches image/price/title in background.
+        // Skipped for known blocked platforms — their server-side fetch is
+        // doomed to return nothing (confirmed: e.g. Amazon's price renders
+        // client-side only), and firing it anyway would touch
+        // last_scraped_at right before the extension's real client_update
+        // call arrives, tripping scrape-product's rescrape rate limit and
+        // discarding the extension's actual data. dashboard.component.ts's
+        // onQuickAdd already routes these through the extension instead.
+        if (!isBlockedPlatformUrl(payload.product_url)) {
+          this.scrapeProduct(payload.product_url, data.id).then(enriched => {
+            if (enriched) {
+              this._items.update(items =>
+                items.map(i => i.id === data.id ? {
+                  ...i,
+                  image_url: enriched.image ?? i.image_url,
+                  product_name: enriched.title ?? i.product_name,
+                  description: enriched.desc ?? i.description,
+                  current_price: enriched.price ?? i.current_price,
+                  initial_price: i.initial_price ?? enriched.price ?? null,
+                } : i)
+              );
+            }
+          });
+        }
       }
       return { data, error: null };
     } catch (error) {

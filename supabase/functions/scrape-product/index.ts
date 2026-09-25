@@ -282,7 +282,7 @@ export async function handleRequest(req: any): Promise<Response> {
     }
 
     if (itemId) {
-      const updateError = await applyItemUpdate(supabase, itemId, callerId, isServiceCaller, scraped)
+      const updateError = await applyItemUpdate(supabase, itemId, callerId, isServiceCaller, scraped, mode)
       if (updateError) {
         return new Response(
           JSON.stringify({ error: updateError.error }),
@@ -406,7 +406,8 @@ export async function applyItemUpdate(
   itemId: string,
   callerId: string | null,
   isServiceCaller: boolean,
-  scraped: { title: string | null; image: string | null; desc: string | null; price: number }
+  scraped: { title: string | null; image: string | null; desc: string | null; price: number },
+  mode?: string
 ): Promise<{ error: string; status: number } | null> {
   const { title, image, desc, price } = scraped
 
@@ -422,9 +423,13 @@ export async function applyItemUpdate(
 
   // Rate-limit user-invoked rescrapes so a client can't hammer this item (and
   // in turn the target retailer / our notification providers) in a tight
-  // loop. The scheduled service-role sweep is exempt — it already paces
-  // itself with its own per-item delay in the GitHub Actions job.
-  if (!isServiceCaller && existing.last_scraped_at) {
+  // loop. Exempt: the scheduled service-role sweep (already paces itself
+  // with its own per-item delay in the GitHub Actions job) and
+  // client_update (the browser extension's own result for a blocked
+  // platform — paced by the extension itself, and often arrives right
+  // after this same item's doomed server-side attempt already touched
+  // last_scraped_at, which must not block the extension's real data).
+  if (!isServiceCaller && mode !== 'client_update' && existing.last_scraped_at) {
     const msSinceLastScrape = Date.now() - new Date(existing.last_scraped_at).getTime()
     if (msSinceLastScrape < RESCRAPE_COOLDOWN_MS) {
       return { error: 'Please wait a moment before refreshing this item again', status: 429 }

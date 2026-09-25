@@ -165,6 +165,50 @@ Deno.test("applyItemUpdate returns Forbidden when a non-service caller does not 
   assertEquals(calls.updates.length, 0)
 })
 
+Deno.test("applyItemUpdate rate-limits a non-service rescrape within the cooldown window", async () => {
+  const { supabase, calls } = createMockSupabase({
+    user_id: 'owner-1',
+    product_name: 'Test Item',
+    initial_price: 1000,
+    current_price: 1000,
+    target_price: null,
+    is_notified: false,
+    last_scraped_at: new Date().toISOString(),
+  })
+  stubFetch()
+
+  const result = await applyItemUpdate(supabase, 'item-1', 'owner-1', false, {
+    title: null, image: null, desc: null, price: 800,
+  })
+
+  assertEquals(result, { error: 'Please wait a moment before refreshing this item again', status: 429 })
+  assertEquals(calls.updates.length, 0)
+})
+
+Deno.test("applyItemUpdate exempts client_update from the rescrape rate limit", async () => {
+  // The extension's client_update result often arrives right after this
+  // same item's own doomed server-side attempt already touched
+  // last_scraped_at (for a blocked-platform URL) — it must not be
+  // rejected just because that happened moments ago.
+  const { supabase, calls } = createMockSupabase({
+    user_id: 'owner-1',
+    product_name: 'Test Item',
+    initial_price: 1000,
+    current_price: 1000,
+    target_price: null,
+    is_notified: false,
+    last_scraped_at: new Date().toISOString(),
+  })
+  stubFetch()
+
+  const result = await applyItemUpdate(supabase, 'item-1', 'owner-1', false, {
+    title: 'Real Title', image: 'https://example.com/img.jpg', desc: null, price: 800,
+  }, 'client_update')
+
+  assertEquals(result, null)
+  assertEquals(calls.updates[0].current_price, 800)
+})
+
 Deno.test("applyItemUpdate allows a trusted service caller regardless of callerId", async () => {
   const { supabase, calls } = createMockSupabase({
     user_id: 'owner-1',
