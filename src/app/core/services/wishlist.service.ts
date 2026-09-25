@@ -154,6 +154,7 @@ export class WishlistService {
         .from('items')
         .select('*')
         .eq('user_id', user.id)
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -390,15 +391,34 @@ export class WishlistService {
     }
   }
 
+  /** Soft-delete: flips is_deleted rather than removing the row, so it can be restored via restoreItem(). */
   async deleteItem(id: string): Promise<{ error: any }> {
     try {
       const { error } = await this.sb.client
         .from('items')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', id);
 
       if (error) throw error;
       this._items.update(items => items.filter(item => item.id !== id));
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
+
+  async restoreItem(id: string): Promise<{ error: any }> {
+    try {
+      const { error } = await this.sb.client
+        .from('items')
+        .update({ is_deleted: false })
+        .eq('id', id);
+
+      if (error) throw error;
+      // Simplest correct way to bring the row back into view with its
+      // current server state (rather than reconstructing it from a stale
+      // pre-delete snapshot) — restores are rare, so a full reload is fine.
+      await this.loadItems();
       return { error: null };
     } catch (error) {
       return { error };
@@ -461,11 +481,23 @@ export class WishlistService {
     return this._selectedIds().has(itemId);
   }
 
+  /** Soft-delete: flips is_deleted rather than removing the rows, so it can be restored via bulkRestore(). */
   async bulkDelete(ids: string[]): Promise<{ error: any }> {
     try {
-      const { error } = await this.sb.client.from('items').delete().in('id', ids);
+      const { error } = await this.sb.client.from('items').update({ is_deleted: true }).in('id', ids);
       if (error) throw error;
       this._items.update(items => items.filter(item => !ids.includes(item.id)));
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
+
+  async bulkRestore(ids: string[]): Promise<{ error: any }> {
+    try {
+      const { error } = await this.sb.client.from('items').update({ is_deleted: false }).in('id', ids);
+      if (error) throw error;
+      await this.loadItems();
       return { error: null };
     } catch (error) {
       return { error };
@@ -498,6 +530,20 @@ export class WishlistService {
     } catch (error) {
       return { error };
     }
+  }
+
+  /** Finds an existing (non-deleted) item with the same product URL, ignoring a trailing slash/query-string noise via exact-match on the normalized origin+pathname. Used to warn before adding an obvious duplicate. */
+  findDuplicateByUrl(url: string, excludeId?: string): WishlistItem | null {
+    const normalize = (u: string): string => {
+      try {
+        const parsed = new URL(u);
+        return `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '').toLowerCase();
+      } catch {
+        return u.trim().toLowerCase();
+      }
+    };
+    const target = normalize(url);
+    return this._items().find(i => i.id !== excludeId && normalize(i.product_url) === target) ?? null;
   }
 
   getPriceDrop(item: WishlistItem): number {

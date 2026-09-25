@@ -409,9 +409,17 @@ import {
               </svg>
             }
             {{ toast.message }}
+            @if (toast.action) {
+              <button
+                (click)="onToastAction(toast)"
+                class="ml-auto font-semibold underline underline-offset-2 hover:opacity-80 shrink-0"
+              >
+                {{ toast.action.label }}
+              </button>
+            }
             <button
               (click)="toastSvc.dismiss(toast.id)"
-              class="ml-auto opacity-70 hover:opacity-100"
+              [class]="toast.action ? 'opacity-70 hover:opacity-100 shrink-0' : 'ml-auto opacity-70 hover:opacity-100'"
             >
               <svg
                 class="w-4 h-4"
@@ -517,6 +525,8 @@ export class DashboardComponent implements OnInit {
         return 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
       case 'purchased':
         return 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z';
+      case 'high_priority':
+        return 'M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z';
       default:
         return 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z';
     }
@@ -531,6 +541,8 @@ export class DashboardComponent implements OnInit {
         return 'No targets met yet';
       case 'purchased':
         return 'Nothing purchased yet';
+      case 'high_priority':
+        return 'No high priority items';
       default:
         return 'No items yet';
     }
@@ -545,6 +557,8 @@ export class DashboardComponent implements OnInit {
         return "Set a target price on an item and it'll show up here once reached.";
       case 'purchased':
         return 'Items you mark as purchased will show up here.';
+      case 'high_priority':
+        return "Mark an item as high priority (in Edit) and it'll show up here.";
       default:
         return 'When you add items to your wishlist, they will appear here.';
     }
@@ -678,6 +692,16 @@ export class DashboardComponent implements OnInit {
   async onQuickAdd(url?: string) {
     const targetUrl = url || this.quickAddUrl;
     if (!targetUrl) return;
+
+    const duplicate = this.wishlistSvc.findDuplicateByUrl(targetUrl);
+    if (duplicate) {
+      const proceed = await this.confirmSvc.confirm(
+        `You already have "${duplicate.product_name || 'this product'}" in your wishlist. Add it again anyway?`,
+        { confirmLabel: 'Add anyway' }
+      );
+      if (!proceed) return;
+    }
+
     this.quickAdding.set(true);
     const { data, error } = await this.wishlistSvc.addItem({
       product_url: targetUrl,
@@ -746,8 +770,19 @@ export class DashboardComponent implements OnInit {
     const { error } = await this.wishlistSvc.bulkDelete(selectedIds);
     this.bulkBusy.set(false);
     this.wishlistSvc.clearSelection();
-    if (error) this.toastSvc.error("Couldn't delete the selected items.");
-    else this.toastSvc.success(`${selectedIds.length} item${selectedIds.length === 1 ? '' : 's'} deleted.`);
+    if (error) {
+      this.toastSvc.error("Couldn't delete the selected items.");
+    } else {
+      const count = selectedIds.length;
+      this.toastSvc.success(`${count} item${count === 1 ? '' : 's'} deleted.`, {
+        label: 'Undo',
+        onClick: async () => {
+          const { error: restoreError } = await this.wishlistSvc.bulkRestore(selectedIds);
+          if (restoreError) this.toastSvc.error("Couldn't restore the items.");
+          else this.toastSvc.success(`${count} item${count === 1 ? '' : 's'} restored.`);
+        },
+      });
+    }
   }
 
   async onBulkMarkPurchased() {
@@ -796,6 +831,11 @@ export class DashboardComponent implements OnInit {
   }
 
   onDeleted(_id: string) {}
+
+  onToastAction(toast: { id: string; action?: { onClick: () => void } }) {
+    toast.action?.onClick();
+    this.toastSvc.dismiss(toast.id);
+  }
 
   closeModal() {
     this.showAddModal.set(false);

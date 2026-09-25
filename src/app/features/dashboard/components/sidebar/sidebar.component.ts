@@ -9,7 +9,8 @@ import {
   LucidePlus,
   LucideZap,
   LucideLogOut,
-  LucideHeart
+  LucideHeart,
+  LucideStar
 } from '@lucide/angular';
 
 @Component({
@@ -24,7 +25,8 @@ import {
     LucidePlus,
     LucideZap,
     LucideLogOut,
-    LucideHeart
+    LucideHeart,
+    LucideStar
   ],
   template: `
     <!-- Desktop Sidebar -->
@@ -92,6 +94,19 @@ import {
         >
           <svg lucideShoppingBag class="w-6 h-6"></svg>
           <span class="hidden lg:block text-base">Purchased</span>
+        </button>
+
+        <!-- High Priority -->
+        <button
+          (click)="filterChanged.emit('high_priority')"
+          [class]="
+            filterBy === 'high_priority'
+              ? 'flex items-center gap-4 p-3 w-full rounded-lg text-primary font-bold bg-muted'
+              : 'flex items-center gap-4 p-3 w-full rounded-lg hover:bg-muted/50 transition-colors'
+          "
+        >
+          <svg lucideStar class="w-6 h-6"></svg>
+          <span class="hidden lg:block text-base">High Priority</span>
         </button>
 
         <!-- Add Item -->

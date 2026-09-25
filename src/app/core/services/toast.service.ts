@@ -1,10 +1,16 @@
 import { Injectable, signal } from '@angular/core';
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: string;
   message: string;
   type: 'success' | 'error' | 'info';
   duration?: number;
+  action?: ToastAction;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -12,14 +18,16 @@ export class ToastService {
   private _toasts = signal<Toast[]>([]);
   toasts = this._toasts.asReadonly();
 
-  show(message: string, type: Toast['type'] = 'info', duration = 4000): void {
+  show(message: string, type: Toast['type'] = 'info', duration = 4000, action?: ToastAction): void {
     const id = Math.random().toString(36).slice(2);
-    const toast: Toast = { id, message, type, duration };
+    const toast: Toast = { id, message, type, duration, action };
     this._toasts.update(t => [...t, toast]);
     setTimeout(() => this.dismiss(id), duration);
   }
 
-  success(message: string): void { this.show(message, 'success'); }
+  success(message: string, action?: ToastAction): void {
+    this.show(message, 'success', action ? 7000 : 4000, action);
+  }
   error(message: string): void { this.show(message, 'error', 6000); }
   info(message: string): void { this.show(message, 'info'); }
 

@@ -9,13 +9,17 @@ describe('DashboardComponent.onQuickAdd', () => {
   let wishlistSvc: jasmine.SpyObj<any>;
   let toastSvc: jasmine.SpyObj<any>;
   let extensionBridge: jasmine.SpyObj<any>;
+  let confirmSvc: jasmine.SpyObj<any>;
 
   beforeEach(() => {
-    wishlistSvc = jasmine.createSpyObj('WishlistService', ['addItem']);
+    wishlistSvc = jasmine.createSpyObj('WishlistService', ['addItem', 'findDuplicateByUrl']);
+    wishlistSvc.findDuplicateByUrl.and.returnValue(null);
     toastSvc = jasmine.createSpyObj('ToastService', ['success', 'error', 'info']);
     extensionBridge = jasmine.createSpyObj('ExtensionBridgeService', ['fetchItemNow', 'isInstalled']);
     extensionBridge.fetchItemNow.and.returnValue(Promise.resolve(null));
     extensionBridge.isInstalled.and.returnValue(Promise.resolve(true));
+    confirmSvc = jasmine.createSpyObj('ConfirmDialogService', ['confirm']);
+    confirmSvc.confirm.and.returnValue(Promise.resolve(true));
 
     component = new DashboardComponent(
       wishlistSvc,
@@ -25,8 +29,33 @@ describe('DashboardComponent.onQuickAdd', () => {
       {} as any, // CookieService — unused by onQuickAdd
       {} as any, // ShareService — unused by onQuickAdd
       extensionBridge,
-      {} as any, // ConfirmDialogService — unused by onQuickAdd
+      confirmSvc,
     );
+  });
+
+  it('warns before adding a duplicate URL, and skips adding if the user cancels', async () => {
+    component.quickAddUrl = 'https://www.someothershop.com/product/999';
+    wishlistSvc.findDuplicateByUrl.and.returnValue({ id: 'existing-1', product_name: 'Existing Widget' });
+    confirmSvc.confirm.and.returnValue(Promise.resolve(false));
+
+    await component.onQuickAdd();
+
+    expect(confirmSvc.confirm).toHaveBeenCalledWith(
+      'You already have "Existing Widget" in your wishlist. Add it again anyway?',
+      jasmine.any(Object)
+    );
+    expect(wishlistSvc.addItem).not.toHaveBeenCalled();
+  });
+
+  it('adds the duplicate anyway if the user confirms', async () => {
+    component.quickAddUrl = 'https://www.someothershop.com/product/999';
+    wishlistSvc.findDuplicateByUrl.and.returnValue({ id: 'existing-1', product_name: 'Existing Widget' });
+    confirmSvc.confirm.and.returnValue(Promise.resolve(true));
+    wishlistSvc.addItem.and.returnValue(Promise.resolve({ data: { id: 'item-7' }, error: null }));
+
+    await component.onQuickAdd();
+
+    expect(wishlistSvc.addItem).toHaveBeenCalled();
   });
 
   it('asks the extension to fetch immediately for a blocked-platform URL (Nykaa)', async () => {

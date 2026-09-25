@@ -538,9 +538,16 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
               {{ item.product_name || 'Unnamed Product' }}
             </h3>
             @if (item.priority === 'high') {
-              <span class="text-primary text-xs shrink-0" title="High Priority"
-                >🔥</span
+              <svg
+                class="w-3.5 h-3.5 text-primary shrink-0"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                title="High Priority"
               >
+                <path
+                  d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"
+                />
+              </svg>
             }
             @if (priceDrop > 0) {
               <span
@@ -1012,12 +1019,20 @@ export class ItemCardComponent {
   }
 
   async onDelete() {
-    const { error } = await this.wishlistSvc.deleteItem(this.item.id);
+    const id = this.item.id;
+    const { error } = await this.wishlistSvc.deleteItem(id);
     if (error) {
       this.toast.error("Couldn't delete the item.");
     } else {
-      this.toast.success('Item removed from your wishlist.');
-      this.deleted.emit(this.item.id);
+      this.toast.success('Item removed from your wishlist.', {
+        label: 'Undo',
+        onClick: async () => {
+          const { error: restoreError } = await this.wishlistSvc.restoreItem(id);
+          if (restoreError) this.toast.error("Couldn't restore the item.");
+          else this.toast.success('Item restored.');
+        },
+      });
+      this.deleted.emit(id);
     }
   }
 

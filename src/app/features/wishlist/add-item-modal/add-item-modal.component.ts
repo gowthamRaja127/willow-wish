@@ -479,6 +479,18 @@ export class AddItemModalComponent implements OnInit {
 
   async onSubmit() {
     if (!this.editItem && !this.form.product_url) return;
+
+    if (!this.editItem) {
+      const duplicate = this.wishlistSvc.findDuplicateByUrl(this.form.product_url);
+      if (duplicate) {
+        const proceed = await this.confirmSvc.confirm(
+          `You already have "${duplicate.product_name || 'this product'}" in your wishlist. Add it again anyway?`,
+          { confirmLabel: 'Add anyway' }
+        );
+        if (!proceed) return;
+      }
+    }
+
     this.loading.set(true);
 
     const tags = this.tagsInput.split(',').map(t => t.trim()).filter(Boolean);

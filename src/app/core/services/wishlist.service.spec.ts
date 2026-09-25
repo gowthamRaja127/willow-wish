@@ -79,3 +79,83 @@ describe('WishlistService', () => {
     expect(updatedItem.initial_price).toBe(1500);
   }));
 });
+
+describe('WishlistService soft delete', () => {
+  let service: WishlistService;
+  let supabaseSvc: jasmine.SpyObj<any>;
+  let updateSpy: jasmine.Spy;
+  let deleteSpy: jasmine.Spy;
+
+  function seedItem(id: string): WishlistItem {
+    return {
+      id,
+      user_id: 'user-123',
+      product_url: 'https://example.com/product',
+      product_name: 'Test Item',
+      description: null,
+      image_url: null,
+      initial_price: null,
+      current_price: null,
+      target_price: null,
+      target_purchase_date: null,
+      tags: [],
+      priority: 'medium',
+      notes: null,
+      is_notified: false,
+      is_purchased: false,
+      created_at: new Date().toISOString(),
+      last_scraped_at: new Date().toISOString(),
+    };
+  }
+
+  beforeEach(() => {
+    supabaseSvc = jasmine.createSpyObj('SupabaseService', ['currentUser']);
+    Object.defineProperty(supabaseSvc, 'currentUser', { get: () => ({ id: 'user-123' }) });
+
+    // Mimics real supabase-js query builders: every filter/mutation method
+    // returns the same chainable object, which is itself "thenable" so
+    // `await` works no matter how many methods were chained before it.
+    const fromSpyObj: any = {
+      then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
+    };
+    updateSpy = jasmine.createSpy('update').and.callFake(() => fromSpyObj);
+    deleteSpy = jasmine.createSpy('delete').and.callFake(() => fromSpyObj);
+    fromSpyObj.update = updateSpy;
+    fromSpyObj.delete = deleteSpy;
+    fromSpyObj.select = jasmine.createSpy('select').and.callFake(() => fromSpyObj);
+    fromSpyObj.eq = jasmine.createSpy('eq').and.callFake(() => fromSpyObj);
+    fromSpyObj.in = jasmine.createSpy('in').and.callFake(() => fromSpyObj);
+    fromSpyObj.order = jasmine.createSpy('order').and.returnValue(Promise.resolve({ data: [], error: null }));
+
+    supabaseSvc.client = jasmine.createSpyObj('client', ['from']);
+    supabaseSvc.client.from.and.returnValue(fromSpyObj);
+
+    service = new WishlistService(supabaseSvc);
+    (service as any)._items.set([seedItem('item-1'), seedItem('item-2')]);
+  });
+
+  it('deleteItem soft-deletes (update is_deleted) instead of hard-deleting the row', async () => {
+    const { error } = await service.deleteItem('item-1');
+
+    expect(error).toBeNull();
+    expect(updateSpy).toHaveBeenCalledWith({ is_deleted: true });
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(service.items().find(i => i.id === 'item-1')).toBeUndefined();
+  });
+
+  it('bulkDelete soft-deletes (update is_deleted) instead of hard-deleting the rows', async () => {
+    const { error } = await service.bulkDelete(['item-1', 'item-2']);
+
+    expect(error).toBeNull();
+    expect(updateSpy).toHaveBeenCalledWith({ is_deleted: true });
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(service.items().length).toBe(0);
+  });
+
+  it('restoreItem clears is_deleted', async () => {
+    const { error } = await service.restoreItem('item-1');
+
+    expect(error).toBeNull();
+    expect(updateSpy).toHaveBeenCalledWith({ is_deleted: false });
+  });
+});
