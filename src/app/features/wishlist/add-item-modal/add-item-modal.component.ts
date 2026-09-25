@@ -44,6 +44,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                   placeholder="https://amazon.in/dp/... or flipkart.com/..."
                   class="input flex-1"
                   [disabled]="loading() || scrapingPreview()"
+                  autofocus
                 />
                 <button
                   type="button"
@@ -93,6 +94,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                 placeholder="Product title (e.g. Sony Headset)"
                 class="input"
                 [disabled]="loading() || scrapingPreview()"
+                [attr.autofocus]="editItem ? '' : null"
               />
             </div>
             <div class="space-y-1.5">

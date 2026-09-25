@@ -24,7 +24,7 @@ import { FormsModule } from '@angular/forms';
             class="input mb-4"
             [disabled]="quickAdding"
             required
-            focus
+            autofocus
           />
           <div class="flex gap-3">
             <button

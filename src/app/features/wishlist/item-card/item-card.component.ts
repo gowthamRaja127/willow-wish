@@ -36,14 +36,35 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
           class="flex items-center justify-between p-3 border-b border-border/40"
         >
           <div class="flex items-center gap-2.5 min-w-0">
-            <div
-              class="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center text-foreground font-bold text-xs shrink-0"
-            >
-              {{
-                item.product_name
-                  ? item.product_name.charAt(0).toUpperCase()
-                  : 'W'
-              }}
+            <div class="relative w-8 h-8 shrink-0">
+              <div
+                class="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center text-foreground font-bold text-xs"
+              >
+                {{
+                  item.product_name
+                    ? item.product_name.charAt(0).toUpperCase()
+                    : 'W'
+                }}
+              </div>
+              <!-- Selection check — sits on top of the avatar on hover; low-opacity/inverse-theme
+                   until selected, then switches to the primary brand color. -->
+              <button
+                type="button"
+                (click)="onSelectToggle($event)"
+                class="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                [class.opacity-100]="wishlistSvc.isSelected(item.id)"
+                [class]="wishlistSvc.isSelected(item.id) ? 'bg-primary' : 'bg-foreground'"
+                [attr.aria-pressed]="wishlistSvc.isSelected(item.id)"
+                title="Select item"
+              >
+                <svg
+                  class="w-4 h-4"
+                  [class]="wishlistSvc.isSelected(item.id) ? 'text-primary-foreground' : 'text-background'"
+                  fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
             </div>
             <div class="flex flex-col min-w-0">
               <h3
@@ -259,24 +280,6 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
               </div>
             </div>
           }
-
-          <!-- Selection check icon — low opacity by default (not hidden), full opacity once selected. Not a checkbox: no border/fill box, just the glyph. -->
-          <button
-            type="button"
-            (click)="onSelectToggle($event)"
-            class="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center transition-opacity"
-            [class]="wishlistSvc.isSelected(item.id) ? 'opacity-100' : 'opacity-30 hover:opacity-60'"
-            [attr.aria-pressed]="wishlistSvc.isSelected(item.id)"
-            title="Select item"
-          >
-            <svg
-              class="w-5 h-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
-              [class]="wishlistSvc.isSelected(item.id) ? 'text-primary' : 'text-white'"
-              fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </button>
         </div>
 
         <!-- Content -->
@@ -407,7 +410,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
               [href]="item.product_url"
               target="_blank"
               rel="noopener noreferrer"
-              class="btn-secondary text-xs py-1.5 flex-1 text-center justify-center flex items-center gap-1.5"
+              class="btn-secondary text-xs py-1.5 px-3 shrink-0 whitespace-nowrap text-center justify-center flex items-center gap-1.5"
             >
               <svg
                 class="w-3.5 h-3.5"
@@ -422,12 +425,12 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                   d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
                 />
               </svg>
-              Buy Now
+              Buy
             </a>
             @if (!item.is_purchased) {
               <button
                 (click)="onMarkPurchased()"
-                class="btn-primary text-xs py-1.5 flex-1 flex items-center justify-center gap-1.5"
+                class="btn-primary text-xs py-1.5 flex-1 whitespace-nowrap flex items-center justify-center gap-1.5"
               >
                 <svg
                   class="w-3.5 h-3.5"
