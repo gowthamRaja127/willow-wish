@@ -2,9 +2,10 @@
   "manifest_version": 3,
   "name": "Willow Wish Price Watcher",
   "version": "0.1.0",
-  "description": "Refreshes prices for your Willow Wish wishlist items on sites the server can't reach directly (Nykaa, Meesho, Instamart, Flipkart, Myntra).",
+  "description": "Refreshes prices for your Willow Wish wishlist items on sites the server can't reach directly (Amazon, Nykaa, Meesho, Instamart, Flipkart, Myntra).",
   "permissions": ["storage", "alarms", "scripting", "tabs"],
   "host_permissions": [
+    "https://*.amazon.in/*",
     "https://*.nykaa.com/*",
     "https://*.meesho.com/*",
     "https://*.swiggy.com/*",
@@ -36,6 +37,7 @@
     {
       "resources": ["content-extract.js"],
       "matches": [
+        "https://*.amazon.in/*",
         "https://*.nykaa.com/*",
         "https://*.meesho.com/*",
         "https://*.swiggy.com/*",

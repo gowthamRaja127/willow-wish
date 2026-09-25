@@ -1,9 +1,8 @@
 # Willow Wish Price Watcher (browser extension)
 
 Refreshes prices for your Willow Wish wishlist items on sites the server
-can't reach reliably. **Only Amazon has been confirmed to work from the
-actual production Supabase edge network** — this extension exists for
-**Nykaa, Meesho, Instamart, Flipkart, and Myntra**.
+can't reach reliably — this extension exists for **Amazon, Nykaa, Meesho,
+Instamart, Flipkart, and Myntra**.
 
 Note: Flipkart and Myntra initially looked fine when tested from a local
 sandbox environment, but production testing (from Supabase's actual edge
@@ -12,6 +11,15 @@ Myntra returns a fake maintenance page — both specifically to Supabase's
 IP range, not to arbitrary IPs. Always verify server-side scraping against
 the *deployed* function, not a local test environment — the two can give
 different, misleading results for sites with IP-reputation-based blocking.
+
+Amazon was moved into this list on 2026-09-26 after live verification
+(fetching real product pages, both directly and through the deployed
+`scrape-product` function) showed its price now renders client-side only:
+the static HTML response has `title`/`image` via Open Graph tags, but the
+price container (`#corePrice_desktop`) is empty until JS runs. No amount
+of selector tuning fixes this — the data genuinely isn't in the response.
+The existing Amazon selectors in `content-extract.js` still apply once a
+real tab has rendered the page, which is exactly what this extension does.
 
 ## How it works
 

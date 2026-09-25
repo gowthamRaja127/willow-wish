@@ -38,14 +38,23 @@ describe('DashboardComponent.onQuickAdd', () => {
     expect(extensionBridge.fetchItemNow).toHaveBeenCalledWith('https://www.nykaa.com/some-product/p/123', 'item-1');
   });
 
-  it('does not call the extension for a normal server-scrapable URL (Amazon)', async () => {
-    component.quickAddUrl = 'https://www.amazon.in/dp/B0CHX3TW6X';
+  it('does not call the extension for a normal server-scrapable URL (not on the blocked-platform list)', async () => {
+    component.quickAddUrl = 'https://www.someothershop.com/product/123';
     wishlistSvc.addItem.and.returnValue(Promise.resolve({ data: { id: 'item-2' }, error: null }));
 
     await component.onQuickAdd();
 
     expect(extensionBridge.fetchItemNow).not.toHaveBeenCalled();
     expect(toastSvc.success).toHaveBeenCalledWith('Added! Fetching product details...');
+  });
+
+  it('asks the extension to fetch immediately for Amazon (price now renders client-side only)', async () => {
+    component.quickAddUrl = 'https://www.amazon.in/dp/B0CHX3TW6X';
+    wishlistSvc.addItem.and.returnValue(Promise.resolve({ data: { id: 'item-6' }, error: null }));
+
+    await component.onQuickAdd();
+
+    expect(extensionBridge.fetchItemNow).toHaveBeenCalledWith('https://www.amazon.in/dp/B0CHX3TW6X', 'item-6');
   });
 
   it('does not call the extension when addItem fails', async () => {

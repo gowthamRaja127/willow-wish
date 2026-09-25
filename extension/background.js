@@ -4,9 +4,12 @@ import { ensureFreshSession, supabaseFetch, setSessionFromCookies, SUPABASE_FUNC
 // checked from the ACTUAL production Supabase edge network IP, not just a
 // local test environment (Flipkart/Myntra initially looked fine from a
 // local sandbox but return a fake maintenance page / HTTP 529 specifically
-// to Supabase's IP range once tested from production). Only Amazon has
-// been confirmed genuinely reliable from both.
-const BLOCKED_HOSTS = ['nykaa.com', 'meesho.com', 'swiggy.com', 'flipkart.com', 'myntra.com']
+// to Supabase's IP range once tested from production). Amazon was added
+// after live verification showed its price now renders client-side only —
+// the static HTML response has title/image via Open Graph tags but an
+// empty price container (#corePrice_desktop), so no selector can recover
+// it server-side; a real rendered tab (this extension) is required.
+const BLOCKED_HOSTS = ['amazon.in', 'nykaa.com', 'meesho.com', 'swiggy.com', 'flipkart.com', 'myntra.com']
 
 const REFRESH_ALARM = 'willowwish-refresh'
 const CHECK_INTERVAL_MINUTES = 480 // 8h — mirrors the server-side cron cadence
