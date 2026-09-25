@@ -55,7 +55,10 @@
             ],
             "scripts": [],
             "optimization": {
-              "fonts": false
+              "fonts": false,
+              "styles": {
+                "inlineCritical": false
+              }
             }
           },
           "configurations": {
