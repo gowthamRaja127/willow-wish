@@ -8,6 +8,8 @@ import {
   LucideShoppingBag,
   LucidePlus,
   LucideZap,
+  LucideShare2,
+  LucideRefreshCw,
   LucideLogOut,
   LucideHeart
 } from '@lucide/angular';
@@ -23,6 +25,8 @@ import {
     LucideShoppingBag,
     LucidePlus,
     LucideZap,
+    LucideShare2,
+    LucideRefreshCw,
     LucideLogOut,
     LucideHeart
   ],
@@ -112,6 +116,27 @@ import {
           <span class="hidden lg:block text-base font-bold">Quick Add</span>
         </button>
 
+        <!-- Share Wishlist -->
+        <div class="flex items-center gap-1">
+          <button
+            (click)="shareWishlist.emit()"
+            [disabled]="sharingWishlist"
+            class="flex items-center gap-4 p-3 flex-1 rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            <svg lucideShare2 class="w-6 h-6"></svg>
+            <span class="hidden lg:block text-base text-left">{{
+              sharingWishlist ? 'Copying...' : 'Share'
+            }}</span>
+          </button>
+          <button
+            (click)="regenerateShare.emit()"
+            [disabled]="sharingWishlist"
+            title="Regenerate wishlist share link"
+            class="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            <svg lucideRefreshCw class="w-4 h-4"></svg>
+          </button>
+        </div>
       </nav>
 
       <!-- Log Out -->
@@ -163,9 +188,12 @@ import {
 export class SidebarComponent {
   @Input({ required: true }) filterBy!: FilterBy;
   @Input({ required: true }) userInitial!: string;
+  @Input({ required: true }) sharingWishlist!: boolean;
 
   @Output() filterChanged = new EventEmitter<FilterBy>();
   @Output() addModalOpened = new EventEmitter<void>();
   @Output() quickAddOpened = new EventEmitter<void>();
+  @Output() shareWishlist = new EventEmitter<void>();
+  @Output() regenerateShare = new EventEmitter<void>();
   @Output() signOut = new EventEmitter<void>();
 }

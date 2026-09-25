@@ -41,7 +41,7 @@ serve(async (req) => {
 
     const { data: share, error: shareError } = await supabase
       .from('wishlist_shares')
-      .select('user_id, item_ids')
+      .select('user_id')
       .eq('token', token)
       .single()
 
@@ -49,22 +49,11 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: corsHeaders })
     }
 
-    let itemsQuery = supabase
+    const { data: items, error: itemsError } = await supabase
       .from('items')
       .select(SHARED_ITEM_FIELDS)
       .eq('user_id', share.user_id)
       .order('created_at', { ascending: false })
-
-    // A null/empty item_ids means the owner chose to share their whole
-    // wishlist (legacy/default behavior) — otherwise restrict to their
-    // selected subset. Still scoped by user_id above so a share_token can
-    // never be used to pull another user's items even if item_ids were
-    // somehow tampered with.
-    if (Array.isArray(share.item_ids) && share.item_ids.length > 0) {
-      itemsQuery = itemsQuery.in('id', share.item_ids)
-    }
-
-    const { data: items, error: itemsError } = await itemsQuery
 
     if (itemsError) throw itemsError
 

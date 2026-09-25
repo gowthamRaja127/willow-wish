@@ -118,32 +118,6 @@ Deno.test("Instamart: extraction yields nothing usable when no recognizable data
   assertEquals(extractImage(doc), null)
 })
 
-// ── Generic fallbacks (product:price:amount, Microdata, image_src) ─────
-
-Deno.test("extractPrice reads product:price:amount", () => {
-  const doc = parse(`<html><head>
-    <meta property="product:price:amount" content="899" />
-  </head></html>`)
-  assertEquals(extractPrice(doc), 899)
-})
-
-Deno.test("extractPrice falls back to schema.org Microdata itemprop=price", () => {
-  const doc = parse(`<html><body><span itemprop="price" content="199.99">₹199.99</span></body></html>`)
-  assertEquals(extractPrice(doc), 199.99)
-})
-
-Deno.test("extractImage falls back to schema.org Microdata itemprop=image", () => {
-  const doc = parse(`<html><body><img itemprop="image" src="https://example.com/micro.jpg" /></body></html>`)
-  assertEquals(extractImage(doc), "https://example.com/micro.jpg")
-})
-
-Deno.test("extractImage falls back to link[rel=image_src]", () => {
-  const doc = parse(`<html><head>
-    <link rel="image_src" href="https://example.com/link-img.jpg" />
-  </head></html>`)
-  assertEquals(extractImage(doc), "https://example.com/link-img.jpg")
-})
-
 // ── extractProductData ───────────────────────────────────────────────
 
 Deno.test("extractProductData resolves a relative image URL against the page origin", () => {

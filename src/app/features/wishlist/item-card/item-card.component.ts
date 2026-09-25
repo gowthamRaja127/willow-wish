@@ -12,7 +12,6 @@ import { WishlistItem } from '../../../core/models/wishlist.model';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ShareService } from '../../../core/services/share.service';
-import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 @Component({
   selector: 'app-item-card',
@@ -23,10 +22,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
     @if (viewMode === 'grid') {
       <div
         class="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full relative group"
-        [class.ring-2]="wishlistSvc.isSelected(item.id)"
-        [class.ring-primary]="wishlistSvc.isSelected(item.id)"
-        [draggable]="!wishlistSvc.selectionMode()"
-        (click)="onCardClick()"
+        draggable="true"
         (dragstart)="onDragStart($event)"
         (dragover)="onDragOver($event)"
         (drop)="onDrop($event)"
@@ -168,25 +164,47 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                   </button>
                 }
                 <hr class="border-border my-1" />
-                <button
-                  (click)="confirmDelete($event)"
-                  class="flex items-center w-full px-3 py-2 hover:bg-muted text-destructive transition-colors gap-2"
-                >
-                  <svg
-                    class="w-3.5 h-3.5 text-destructive"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    viewBox="0 0 24 24"
+                @if (confirmingDelete()) {
+                  <div class="px-2 py-1 space-y-1">
+                    <p class="text-[10px] text-muted-foreground text-center">
+                      Are you sure?
+                    </p>
+                    <div class="flex gap-1">
+                      <button
+                        (click)="onDelete($event)"
+                        class="flex-1 text-center py-1 text-[10px] bg-destructive text-destructive-foreground rounded font-semibold hover:bg-destructive/80 transition-colors"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        (click)="cancelDelete($event)"
+                        class="flex-1 text-center py-1 text-[10px] bg-muted text-foreground rounded hover:bg-muted/80 transition-colors"
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                } @else {
+                  <button
+                    (click)="confirmDelete($event)"
+                    class="flex items-center w-full px-3 py-2 hover:bg-muted text-destructive transition-colors gap-2"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                  Delete
-                </button>
+                    <svg
+                      class="w-3.5 h-3.5 text-destructive"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    Delete
+                  </button>
+                }
               </div>
             }
           </div>
@@ -259,24 +277,6 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
               </div>
             </div>
           }
-
-          <!-- Selection check icon — low opacity by default (not hidden), full opacity once selected. Not a checkbox: no border/fill box, just the glyph. -->
-          <button
-            type="button"
-            (click)="onSelectToggle($event)"
-            class="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center transition-opacity"
-            [class]="wishlistSvc.isSelected(item.id) ? 'opacity-100' : 'opacity-30 hover:opacity-60'"
-            [attr.aria-pressed]="wishlistSvc.isSelected(item.id)"
-            title="Select item"
-          >
-            <svg
-              class="w-5 h-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
-              [class]="wishlistSvc.isSelected(item.id) ? 'text-primary' : 'text-white'"
-              fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </button>
         </div>
 
         <!-- Content -->
@@ -363,10 +363,9 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
               }
               @if (item.target_purchase_date) {
                 <span
-                  [title]="item.reminder_sent ? 'Reminder already sent' : 'We\\'ll remind you on WhatsApp/email around this time'"
-                  >{{ item.reminder_sent ? 'Reminded' : 'Remind' }}:
+                  >By:
                   <span class="font-medium text-foreground/80">{{
-                    item.target_purchase_date | date: "MMM d, y, h:mm a"
+                    item.target_purchase_date | date: 'MMM d, y'
                   }}</span></span
                 >
               }
@@ -442,7 +441,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                     d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Mark as Purchased
+                Mark Got
               </button>
             }
           </div>
@@ -452,32 +451,11 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
       <!-- ── LIST VIEW ROW ── -->
       <div
         class="bg-card border border-border rounded-xl p-3 flex items-center gap-4 w-full relative group"
-        [class.ring-2]="wishlistSvc.isSelected(item.id)"
-        [class.ring-primary]="wishlistSvc.isSelected(item.id)"
-        [draggable]="!wishlistSvc.selectionMode()"
-        (click)="onCardClick()"
+        draggable="true"
         (dragstart)="onDragStart($event)"
         (dragover)="onDragOver($event)"
         (drop)="onDrop($event)"
       >
-        <!-- Selection check icon — low opacity by default (not hidden), full opacity once selected. Not a checkbox: no border/fill box, just the glyph. -->
-        <button
-          type="button"
-          (click)="onSelectToggle($event)"
-          class="w-6 h-6 flex items-center justify-center shrink-0 transition-opacity"
-          [class]="wishlistSvc.isSelected(item.id) ? 'opacity-100' : 'opacity-30 hover:opacity-60'"
-          [attr.aria-pressed]="wishlistSvc.isSelected(item.id)"
-          title="Select item"
-        >
-          <svg
-            class="w-4 h-4"
-            [class]="wishlistSvc.isSelected(item.id) ? 'text-primary' : 'text-muted-foreground'"
-            fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </button>
-
         <!-- Thumbnail -->
         <div
           class="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted/30 rounded-lg overflow-hidden shrink-0 flex items-center justify-center border border-border/40"
@@ -740,7 +718,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                         d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    Mark as Purchased
+                    Mark Got
                   </button>
                 }
                 <hr class="border-border my-1 xs:hidden" />
@@ -826,25 +804,47 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
                   </button>
                 }
                 <hr class="border-border my-1" />
-                <button
-                  (click)="confirmDelete($event)"
-                  class="flex items-center w-full px-3 py-2 hover:bg-muted text-destructive transition-colors gap-2"
-                >
-                  <svg
-                    class="w-3.5 h-3.5 text-destructive"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    viewBox="0 0 24 24"
+                @if (confirmingDelete()) {
+                  <div class="px-2 py-1 space-y-1">
+                    <p class="text-[10px] text-muted-foreground text-center">
+                      Are you sure?
+                    </p>
+                    <div class="flex gap-1">
+                      <button
+                        (click)="onDelete($event)"
+                        class="flex-1 text-center py-1 text-[10px] bg-destructive text-destructive-foreground rounded font-semibold hover:bg-destructive/80 transition-colors"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        (click)="cancelDelete($event)"
+                        class="flex-1 text-center py-1 text-[10px] bg-muted text-foreground rounded hover:bg-muted/80 transition-colors"
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                } @else {
+                  <button
+                    (click)="confirmDelete($event)"
+                    class="flex items-center w-full px-3 py-2 hover:bg-muted text-destructive transition-colors gap-2"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                  Delete
-                </button>
+                    <svg
+                      class="w-3.5 h-3.5 text-destructive"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    Delete
+                  </button>
+                }
               </div>
             }
           </div>
@@ -863,15 +863,15 @@ export class ItemCardComponent {
   @Output() droppedItemId = new EventEmitter<string>();
 
   showActionsMenu = signal(false);
+  confirmingDelete = signal(false);
   hasImgError = signal(false);
 
   sharing = signal(false);
 
   constructor(
-    public wishlistSvc: WishlistService,
+    private wishlistSvc: WishlistService,
     private toast: ToastService,
     private shareSvc: ShareService,
-    private confirmSvc: ConfirmDialogService,
   ) {}
 
   get priceDrop(): number {
@@ -906,18 +906,6 @@ export class ItemCardComponent {
     this.hasImgError.set(true);
   }
 
-  onCardClick(): void {
-    if (this.wishlistSvc.selectionMode()) {
-      this.wishlistSvc.toggleSelected(this.item.id);
-    }
-  }
-
-  /** The hover-reveal checkbox itself — works even before selection mode has started. */
-  onSelectToggle(e: MouseEvent): void {
-    e.stopPropagation();
-    this.wishlistSvc.toggleSelected(this.item.id);
-  }
-
   onDragStart(e: DragEvent): void {
     e.dataTransfer?.setData('text/plain', this.item.id);
   }
@@ -940,15 +928,14 @@ export class ItemCardComponent {
     this.showActionsMenu.update((v) => !v);
   }
 
-  async confirmDelete(e: MouseEvent) {
+  confirmDelete(e: MouseEvent) {
     e.stopPropagation();
-    this.showActionsMenu.set(false);
-    const itemName = this.item.product_name || 'this item';
-    const confirmed = await this.confirmSvc.confirm(`Are you sure you want to delete "${itemName}"?`, {
-      confirmLabel: 'Delete',
-      destructive: true,
-    });
-    if (confirmed) this.onDelete();
+    this.confirmingDelete.set(true);
+  }
+
+  cancelDelete(e: MouseEvent) {
+    e.stopPropagation();
+    this.confirmingDelete.set(false);
   }
 
   onEdit(e: MouseEvent) {
@@ -990,7 +977,7 @@ export class ItemCardComponent {
 
   private async copyItemShareLink(token: string | null, error: any) {
     if (error || !token) {
-      this.toast.error("Couldn't create the share link.");
+      this.toast.error('Could not create share link');
       return;
     }
     this.item.share_token = token;
@@ -1003,19 +990,22 @@ export class ItemCardComponent {
     }
   }
 
-  async onDelete() {
+  async onDelete(e: MouseEvent) {
+    e.stopPropagation();
     const { error } = await this.wishlistSvc.deleteItem(this.item.id);
+    this.showActionsMenu.set(false);
     if (error) {
-      this.toast.error("Couldn't delete the item.");
+      this.toast.error('Could not delete item');
+      this.confirmingDelete.set(false);
     } else {
-      this.toast.success('Item removed from your wishlist.');
+      this.toast.success('Item removed');
       this.deleted.emit(this.item.id);
     }
   }
 
   async onMarkPurchased() {
     const { error } = await this.wishlistSvc.markPurchased(this.item.id);
-    if (error) this.toast.error("Couldn't update the item.");
+    if (error) this.toast.error('Could not update item');
     else this.toast.success('Marked as purchased!');
   }
 
@@ -1034,6 +1024,7 @@ export class ItemCardComponent {
     const target = event.target as HTMLElement;
     if (!target.closest('.action-menu-container')) {
       this.showActionsMenu.set(false);
+      this.confirmingDelete.set(false);
     }
   }
 }

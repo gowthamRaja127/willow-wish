@@ -25,46 +25,28 @@ export class ShareService {
     return { token, error: null };
   }
 
-  /**
-   * @param itemIds Optional subset of item ids to scope the share to. Omit
-   * (or pass an empty array) to share the whole wishlist. Passing itemIds
-   * always writes/overwrites the stored selection on the existing link
-   * (unlike the no-arg "whole wishlist" path, which reuses any existing
-   * token as-is) — the caller made an explicit choice, so no stale narrower
-   * selection should linger on it.
-   */
-  async getWishlistShareToken(itemIds?: string[]): Promise<{ token: string | null; error: any }> {
+  async getWishlistShareToken(): Promise<{ token: string | null; error: any }> {
     const user = this.sb.currentUser;
     if (!user) return { token: null, error: new Error('Not authenticated') };
 
-    if (itemIds && itemIds.length > 0) {
-      return this.regenerateWishlistShareToken(itemIds);
-    }
-
     const { data: existing } = await this.sb.client
       .from('wishlist_shares')
-      .select('token, item_ids')
+      .select('token')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    // Reuse the existing link only if it's already scoped to the whole
-    // wishlist — an existing link narrowed to a prior selection must be
-    // regenerated (cleared to item_ids: null) so "Share Wishlist" reliably
-    // means "everything", not "whatever was last selected."
-    if (existing?.token && (!existing.item_ids || existing.item_ids.length === 0)) {
-      return { token: existing.token, error: null };
-    }
+    if (existing?.token) return { token: existing.token, error: null };
     return this.regenerateWishlistShareToken();
   }
 
-  async regenerateWishlistShareToken(itemIds?: string[]): Promise<{ token: string | null; error: any }> {
+  async regenerateWishlistShareToken(): Promise<{ token: string | null; error: any }> {
     const user = this.sb.currentUser;
     if (!user) return { token: null, error: new Error('Not authenticated') };
 
     const token = crypto.randomUUID();
     const { error } = await this.sb.client
       .from('wishlist_shares')
-      .upsert({ user_id: user.id, token, item_ids: itemIds && itemIds.length > 0 ? itemIds : null });
+      .upsert({ user_id: user.id, token });
     if (error) return { token: null, error };
     return { token, error: null };
   }

@@ -21,7 +21,6 @@ export interface WishlistItem {
   share_token?: string | null;
   is_deleted?: boolean;
   group_id?: string | null;
-  reminder_sent?: boolean;
 }
 
 export interface ItemGroup {
@@ -55,13 +54,11 @@ export interface UpdateItemPayload {
   description?: string;
   image_url?: string | null;
   target_price?: number | null;
-  current_price?: number | null;
   target_purchase_date?: string | null;
   tags?: string[];
   priority?: 'low' | 'medium' | 'high';
   notes?: string | null;
   is_purchased?: boolean;
-  reminder_sent?: boolean;
 }
 
 export type SortBy = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'name' | 'savings';

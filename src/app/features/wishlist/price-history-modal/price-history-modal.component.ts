@@ -23,7 +23,7 @@ Chart.register(...registerables);
         </div>
 
         @if (loading) {
-          <div class="shimmer w-full rounded-lg" style="height: 220px"></div>
+          <div class="py-10 text-center text-sm text-muted-foreground">Loading...</div>
         } @else if (entries.length === 0) {
           <div class="py-10 text-center text-sm text-muted-foreground">No price history recorded yet.</div>
         }

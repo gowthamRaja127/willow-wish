@@ -11,43 +11,6 @@ import { Injectable } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class ExtensionBridgeService {
   /**
-   * Fast install-detection via the content script's existing PING/PONG
-   * handshake (see bridge-content-script.js) — a short timeout here means
-   * the common "extension not installed" case resolves in ~1.5s instead of
-   * fetchItemNow's much longer 25s (which has to allow for a real tab
-   * load), so callers can skip straight to a fallback without a long wait.
-   */
-  isInstalled(timeoutMs = 1500): Promise<boolean> {
-    return new Promise((resolve) => {
-      const requestId = crypto.randomUUID();
-      let settled = false;
-
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        window.removeEventListener('message', onMessage);
-        resolve(false);
-      }, timeoutMs);
-
-      function onMessage(event: MessageEvent) {
-        if (event.source !== window) return;
-        const data = event.data;
-        if (!data || data.source !== 'willowwish-extension' || data.requestId !== requestId) return;
-        if (data.type !== 'PONG') return;
-
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        window.removeEventListener('message', onMessage);
-        resolve(true);
-      }
-
-      window.addEventListener('message', onMessage);
-      window.postMessage({ source: 'willowwish-app', type: 'PING', requestId }, window.location.origin);
-    });
-  }
-
-  /**
    * Asks the extension to immediately fetch a product page's data (used for
    * platforms the server can't scrape) and apply it to an existing item.
    * Resolves `null` if the extension isn't installed/didn't respond in time.

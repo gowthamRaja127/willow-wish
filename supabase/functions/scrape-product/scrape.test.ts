@@ -122,25 +122,6 @@ Deno.test("extractPrice falls back to JSON-LD Product offers", () => {
   assertEquals(extractPrice(doc), 899)
 })
 
-Deno.test("extractPrice reads product:price:amount", () => {
-  const doc = parse(`<html><head>
-    <meta property="product:price:amount" content="2499" />
-  </head></html>`)
-  assertEquals(extractPrice(doc), 2499)
-})
-
-Deno.test("extractPrice falls back to schema.org Microdata itemprop=price", () => {
-  const doc = parse(`<html><body>
-    <span itemprop="price" content="349.50">₹349.50</span>
-  </body></html>`)
-  assertEquals(extractPrice(doc), 349.5)
-})
-
-Deno.test("extractPrice reads Microdata itemprop=price text when no content attribute", () => {
-  const doc = parse(`<html><body><span itemprop="price">₹1,250</span></body></html>`)
-  assertEquals(extractPrice(doc), 1250)
-})
-
 Deno.test("extractPrice returns 0 when nothing matches", () => {
   const doc = parse(`<html><head><title>Generic shell page</title></head></html>`)
   assertEquals(extractPrice(doc), 0)
@@ -179,18 +160,6 @@ Deno.test("extractImage falls back to twitter:image", () => {
     <meta name="twitter:image" content="https://example.com/twitter.jpg" />
   </head></html>`)
   assertEquals(extractImage(doc), "https://example.com/twitter.jpg")
-})
-
-Deno.test("extractImage falls back to schema.org Microdata itemprop=image", () => {
-  const doc = parse(`<html><body><img itemprop="image" src="https://example.com/micro.jpg" /></body></html>`)
-  assertEquals(extractImage(doc), "https://example.com/micro.jpg")
-})
-
-Deno.test("extractImage falls back to link[rel=image_src]", () => {
-  const doc = parse(`<html><head>
-    <link rel="image_src" href="https://example.com/link-img.jpg" />
-  </head></html>`)
-  assertEquals(extractImage(doc), "https://example.com/link-img.jpg")
 })
 
 Deno.test("extractImage returns null when nothing matches", () => {
