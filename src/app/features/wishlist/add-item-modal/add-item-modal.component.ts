@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { WishlistItem, AddItemPayload, UpdateItemPayload } from '../../../core/models/wishlist.model';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 @Component({
   selector: 'app-add-item-modal',
@@ -22,7 +23,7 @@ import { ToastService } from '../../../core/services/toast.service';
               {{ editItem ? 'Update details of your wish' : 'Add details or let us auto-scrape them' }}
             </p>
           </div>
-          <button (click)="close.emit()" class="btn-ghost btn-icon">
+          <button (click)="requestClose()" class="btn-ghost btn-icon">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -120,6 +121,22 @@ import { ToastService } from '../../../core/services/toast.service';
 
           <!-- Price & Priority -->
           <div class="grid grid-cols-2 gap-3">
+            @if (editItem) {
+              <div class="space-y-1.5">
+                <label class="text-sm font-medium text-foreground">Current Price (₹)</label>
+                <input
+                  type="number"
+                  [(ngModel)]="form.current_price"
+                  name="current_price"
+                  placeholder="Current Price"
+                  step="1"
+                  min="0"
+                  class="input"
+                  [disabled]="loading()"
+                />
+                <p class="text-[11px] text-muted-foreground">Correct this if auto-scraping got it wrong.</p>
+              </div>
+            }
             <div class="space-y-1.5">
               <label class="text-sm font-medium text-foreground">Target Price (₹)</label>
               <input
@@ -187,9 +204,35 @@ import { ToastService } from '../../../core/services/toast.service';
                 </svg>
               </div>
             </div>
+            <!-- Reminder Time -->
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <div class="relative">
+                <select [(ngModel)]="hour" name="reminderHour" (ngModelChange)="syncDate()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  <option value="">Hour</option>
+                  @for (h of hours; track h) {
+                    <option [value]="h">{{ h }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
+              <div class="relative">
+                <select [(ngModel)]="minute" name="reminderMinute" (ngModelChange)="syncDate()" class="input text-sm pr-7 appearance-none cursor-pointer" [disabled]="loading()">
+                  <option value="">Minute</option>
+                  @for (m of minutes; track m) {
+                    <option [value]="m">{{ m }}</option>
+                  }
+                </select>
+                <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
+            </div>
             @if (form.target_purchase_date) {
               <p class="text-xs text-muted-foreground pt-0.5">
-                Selected: <span class="text-primary font-medium">{{ form.target_purchase_date }}</span>
+                Reminder: <span class="text-primary font-medium">{{ form.target_purchase_date | date: "MMM d, y 'at' h:mm a" }}</span>
+                — we'll message you on WhatsApp/email around then.
                 <button type="button" class="ml-2 text-destructive hover:underline text-xs" (click)="clearDate()">Clear</button>
               </p>
             }
@@ -211,7 +254,7 @@ import { ToastService } from '../../../core/services/toast.service';
 
           <!-- Buttons -->
           <div class="flex gap-3 pt-2">
-            <button type="button" (click)="close.emit()" class="btn-secondary btn-md flex-1">Cancel</button>
+            <button type="button" (click)="requestClose()" class="btn-secondary btn-md flex-1">Cancel</button>
             <button type="submit" class="btn-primary btn-md flex-1" [disabled]="loading() || scrapingPreview()">
               @if (loading()) {
                 <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -238,7 +281,7 @@ export class AddItemModalComponent implements OnInit {
   scrapedPrice = signal<number | null>(null);
   tagsInput = '';
 
-  form: AddItemPayload & { product_name?: string; description?: string; image_url?: string | null } = {
+  form: AddItemPayload & { product_name?: string; description?: string; image_url?: string | null; current_price?: number | null } = {
     product_url: '',
     product_name: '',
     description: '',
@@ -254,6 +297,11 @@ export class AddItemModalComponent implements OnInit {
   dateDay   = '';
   dateMonth = '';
   dateYear  = '';
+  hour      = '';
+  minute    = '';
+
+  readonly hours: string[] = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  readonly minutes: string[] = ['00', '15', '30', '45'];
 
   readonly months = [
     { value: '01', label: 'January'  },
@@ -277,7 +325,14 @@ export class AddItemModalComponent implements OnInit {
 
   days = signal<number[]>([]);
 
-  constructor(private wishlistSvc: WishlistService, private toast: ToastService) {}
+  /** Snapshot of the form's initial state, used to detect unsaved edits on close. */
+  private initialSnapshot = '';
+
+  constructor(
+    private wishlistSvc: WishlistService,
+    private toast: ToastService,
+    private confirmSvc: ConfirmDialogService,
+  ) {}
 
   ngOnInit() {
     const now = new Date();
@@ -291,17 +346,23 @@ export class AddItemModalComponent implements OnInit {
         description: this.editItem.description ?? '',
         image_url: this.editItem.image_url,
         target_price: this.editItem.target_price,
+        current_price: this.editItem.current_price,
         priority: this.editItem.priority ?? 'medium',
-        target_purchase_date: this.editItem.target_purchase_date?.split('T')[0] ?? null,
+        target_purchase_date: this.editItem.target_purchase_date ?? null,
         notes: this.editItem.notes,
       };
       this.tagsInput = (this.editItem.tags ?? []).join(', ');
 
       if (this.form.target_purchase_date) {
-        const parts = this.form.target_purchase_date.split('-');
-        this.dateYear  = parts[0];
-        this.dateMonth = parts[1];
-        this.dateDay   = String(parseInt(parts[2], 10));
+        // Read back in LOCAL time (not the raw UTC string) so the picker
+        // shows the same wall-clock date/time the user originally chose,
+        // regardless of what timezone offset it round-tripped through.
+        const d = new Date(this.form.target_purchase_date);
+        this.dateYear  = String(d.getFullYear());
+        this.dateMonth = String(d.getMonth() + 1).padStart(2, '0');
+        this.dateDay   = String(d.getDate());
+        this.hour      = String(d.getHours()).padStart(2, '0');
+        this.minute    = this.nearestMinuteOption(d.getMinutes());
       } else {
         this.dateYear  = String(currentYear);
         this.dateMonth = currentMonth;
@@ -312,6 +373,23 @@ export class AddItemModalComponent implements OnInit {
     }
 
     this.rebuildDays();
+    this.initialSnapshot = this.snapshot();
+  }
+
+  private snapshot(): string {
+    return JSON.stringify({ form: this.form, tagsInput: this.tagsInput });
+  }
+
+  async requestClose() {
+    if (this.snapshot() === this.initialSnapshot) {
+      this.close.emit();
+      return;
+    }
+    const confirmed = await this.confirmSvc.confirm('Are you sure you want to discard your unsaved changes?', {
+      confirmLabel: 'Discard',
+      destructive: true,
+    });
+    if (confirmed) this.close.emit();
   }
 
   async autoScrape() {
@@ -358,10 +436,29 @@ export class AddItemModalComponent implements OnInit {
     this.days.set(Array.from({ length: daysInMonth }, (_, i) => i + 1));
   }
 
+  /** Rounds a stored minute value to the nearest option this picker offers. */
+  private nearestMinuteOption(mins: number): string {
+    const step = 15;
+    const rounded = Math.round(mins / step) * step;
+    return String(rounded % 60).padStart(2, '0');
+  }
+
   syncDate() {
     if (this.dateYear && this.dateMonth && this.dateDay) {
-      const dd = String(this.dateDay).padStart(2, '0');
-      this.form.target_purchase_date = `${this.dateYear}-${this.dateMonth}-${dd}`;
+      // Built from the LOCAL calendar fields the user picked (defaulting to
+      // midnight if no time was chosen), then serialized to UTC via
+      // toISOString() — this is what makes the round-trip through Postgres'
+      // timestamptz storage show the same wall-clock time back to the user,
+      // regardless of their timezone.
+      const date = new Date(
+        Number(this.dateYear),
+        Number(this.dateMonth) - 1,
+        Number(this.dateDay),
+        this.hour ? Number(this.hour) : 0,
+        this.minute ? Number(this.minute) : 0,
+        0, 0
+      );
+      this.form.target_purchase_date = date.toISOString();
     } else {
       this.form.target_purchase_date = null;
     }
@@ -369,11 +466,13 @@ export class AddItemModalComponent implements OnInit {
 
   clearDate() {
     this.dateDay = '';
+    this.hour = '';
+    this.minute = '';
     this.form.target_purchase_date = null;
   }
 
   onBackdropClick(e: Event) {
-    if (e.target === e.currentTarget) this.close.emit();
+    if (e.target === e.currentTarget) this.requestClose();
   }
 
   async onSubmit() {
@@ -388,6 +487,7 @@ export class AddItemModalComponent implements OnInit {
         description: this.form.description ?? undefined,
         image_url: this.form.image_url ?? null,
         target_price: this.form.target_price ?? null,
+        current_price: this.form.current_price ?? null,
         priority: this.form.priority,
         target_purchase_date: this.form.target_purchase_date ?? null,
         tags,
@@ -395,7 +495,7 @@ export class AddItemModalComponent implements OnInit {
       };
       const { error } = await this.wishlistSvc.updateItem(this.editItem.id, payload);
       this.loading.set(false);
-      if (error) this.toast.error('Failed to update item');
+      if (error) this.toast.error("Couldn't update the item.");
       else {
         this.toast.success('Item updated!');
         this.saved.emit();
@@ -422,7 +522,7 @@ export class AddItemModalComponent implements OnInit {
       const { data, error } = await this.wishlistSvc.addItem(payload);
       this.loading.set(false);
       if (error) {
-        this.toast.error('Failed to add item: ' + error.message);
+        this.toast.error("Couldn't add the item: " + error.message);
       } else {
         this.toast.success('Item added to wishlist!');
         this.saved.emit();

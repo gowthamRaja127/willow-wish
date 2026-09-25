@@ -27,8 +27,29 @@ function syncSessionFromCookies() {
 
 syncSessionFromCookies()
 
+// Matches manifest.json's content_scripts.matches for this file — this
+// content script only ever runs on these origins, so a message claiming to
+// be from 'willowwish-app' but posted from anywhere else (e.g. an embedded
+// iframe, or a future broader content-script match) is rejected outright.
+const ALLOWED_ORIGINS = [
+  'https://willow-wish.pages.dev',
+  'https://willowwish.dev',
+  'http://localhost:4200',
+]
+
+function isAllowedOrigin(origin) {
+  if (ALLOWED_ORIGINS.includes(origin)) return true
+  try {
+    const { protocol, hostname } = new URL(origin)
+    return protocol === 'https:' && (hostname.endsWith('.willow-wish.pages.dev') || hostname.endsWith('.willowwish.dev'))
+  } catch {
+    return false
+  }
+}
+
 window.addEventListener('message', (event) => {
   if (event.source !== window) return
+  if (!isAllowedOrigin(event.origin)) return
   const data = event.data
   if (!data || data.source !== 'willowwish-app') return
 

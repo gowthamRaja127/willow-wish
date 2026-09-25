@@ -19,6 +19,11 @@ export class WishlistService {
   private _searchQuery = signal('');
   private _activeTag = signal<string | null>(null);
   private _groups = signal<ItemGroup[]>([]);
+  // Transient, client-only multi-select used for the Google-Photos-style
+  // bulk toolbar (share/delete/mark purchased/edit reminder) — never
+  // persisted to the items table (unlike group_id).
+  private _selectionMode = signal(false);
+  private _selectedIds = signal<Set<string>>(new Set());
 
   items = this._items.asReadonly();
   loading = this._loading.asReadonly();
@@ -27,6 +32,8 @@ export class WishlistService {
   searchQuery = this._searchQuery.asReadonly();
   activeTag = this._activeTag.asReadonly();
   groups = this._groups.asReadonly();
+  selectionMode = this._selectionMode.asReadonly();
+  selectedIds = this._selectedIds.asReadonly();
 
   filteredItems = computed(() => {
     let items = [...this._items()];
@@ -216,11 +223,12 @@ export class WishlistService {
     }
   }
 
-  async removeFromGroup(itemId: string): Promise<{ error: any }> {
+  /** `removed` is false when the item wasn't in a group to begin with (a no-op), so callers can skip a misleading "removed" toast. */
+  async removeFromGroup(itemId: string): Promise<{ error: any; removed: boolean }> {
     try {
       const item = this._items().find(i => i.id === itemId);
       const groupId = item?.group_id;
-      if (!groupId) return { error: null };
+      if (!groupId) return { error: null, removed: false };
 
       const { error } = await this.sb.client
         .from('items')
@@ -243,9 +251,9 @@ export class WishlistService {
         );
         this._groups.update(groups => groups.filter(g => g.id !== groupId));
       }
-      return { error: null };
+      return { error: null, removed: true };
     } catch (error) {
-      return { error };
+      return { error, removed: false };
     }
   }
 
@@ -342,10 +350,18 @@ export class WishlistService {
       // an item that already triggered one target-met alert can never notify
       // again, even after the target is lowered and met a second time.
       const finalPayload: UpdateItemPayload & { is_notified?: boolean } = { ...payload };
+      const current = this._items().find(i => i.id === id);
       if (payload.target_price !== undefined) {
-        const current = this._items().find(i => i.id === id);
         if (current && current.target_price !== payload.target_price) {
           finalPayload.is_notified = false;
+        }
+      }
+      // Changing the reminder date/time re-arms it — otherwise editing a
+      // past-due (already-sent) reminder to a new future time would never
+      // fire again, since reminder_sent would still be true from before.
+      if (payload.target_purchase_date !== undefined) {
+        if (current && current.target_purchase_date !== payload.target_purchase_date) {
+          finalPayload.reminder_sent = false;
         }
       }
 
@@ -410,6 +426,68 @@ export class WishlistService {
 
   toggleTag(tag: string): void {
     this._activeTag.update(current => current === tag ? null : tag);
+  }
+
+  clearSelection(): void {
+    this._selectionMode.set(false);
+    this._selectedIds.set(new Set());
+  }
+
+  /** Toggles an item's selection, auto-entering selection mode on the first pick. */
+  toggleSelected(itemId: string): void {
+    this._selectedIds.update(current => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+    // Google-Photos-style: selecting something starts the mode; deselecting
+    // the last item ends it — no separate "cancel" needed for that case
+    // (the toolbar still offers an explicit close button too).
+    this._selectionMode.set(this._selectedIds().size > 0);
+  }
+
+  isSelected(itemId: string): boolean {
+    return this._selectedIds().has(itemId);
+  }
+
+  async bulkDelete(ids: string[]): Promise<{ error: any }> {
+    try {
+      const { error } = await this.sb.client.from('items').delete().in('id', ids);
+      if (error) throw error;
+      this._items.update(items => items.filter(item => !ids.includes(item.id)));
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
+
+  async bulkMarkPurchased(ids: string[]): Promise<{ error: any }> {
+    try {
+      const patch = { is_purchased: true };
+      const { error } = await this.sb.client.from('items').update(patch).in('id', ids);
+      if (error) throw error;
+      this._items.update(items =>
+        items.map(item => ids.includes(item.id) ? { ...item, ...patch } : item)
+      );
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
+
+  async bulkSetReminder(ids: string[], targetPurchaseDate: string | null): Promise<{ error: any }> {
+    try {
+      const patch = { target_purchase_date: targetPurchaseDate, reminder_sent: false };
+      const { error } = await this.sb.client.from('items').update(patch).in('id', ids);
+      if (error) throw error;
+      this._items.update(items =>
+        items.map(item => ids.includes(item.id) ? { ...item, ...patch } : item)
+      );
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
   }
 
   getPriceDrop(item: WishlistItem): number {

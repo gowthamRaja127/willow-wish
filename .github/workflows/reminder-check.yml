@@ -1,0 +1,19 @@
+name: WillowWish Purchase Reminder Sweep
+on:
+  schedule:
+    - cron: "*/15 * * * *" # Every 15 minutes — reminders fire within ~15min of their chosen time
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger send-reminders Edge Function
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -sf -X POST "${SUPABASE_URL}/functions/v1/send-reminders" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}"

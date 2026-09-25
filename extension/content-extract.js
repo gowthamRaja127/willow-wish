@@ -34,8 +34,9 @@ export function extractJsonLdProduct(doc) {
 }
 
 export function extractPrice(doc) {
-  // Standard Open Graph
-  const ogPrice = doc.querySelector('meta[property="og:price:amount"]')?.getAttribute('content')
+  // Standard Open Graph (og:price:amount, and product:price:amount which
+  // some storefronts emit instead/as well)
+  const ogPrice = doc.querySelector('meta[property="og:price:amount"], meta[property="product:price:amount"]')?.getAttribute('content')
   if (ogPrice) {
     const n = parseFloat(ogPrice.replace(/[^0-9.]/g, ''))
     if (n > 0) return n
@@ -72,6 +73,17 @@ export function extractPrice(doc) {
   const jsonLd = extractJsonLdProduct(doc)
   if (jsonLd?.price) return jsonLd.price
 
+  // Generic fallback: schema.org Microdata (itemprop="price") — same
+  // vocabulary as JSON-LD above, marked up as element attributes instead.
+  const microdataPriceEl = doc.querySelector('[itemprop="price"]')
+  if (microdataPriceEl) {
+    const raw = microdataPriceEl.getAttribute('content') ?? microdataPriceEl.textContent
+    if (raw) {
+      const n = parseFloat(String(raw).replace(/[^0-9.]/g, ''))
+      if (n > 0) return n
+    }
+  }
+
   return 0
 }
 
@@ -95,6 +107,15 @@ export function extractImage(doc) {
 
   const twitterImg = doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
   if (twitterImg) return twitterImg
+
+  // Generic fallback: schema.org Microdata image, or the classic
+  // <link rel="image_src"> hint some older/simpler storefronts still emit.
+  const microdataImg = doc.querySelector('[itemprop="image"]')?.getAttribute('src')
+    ?? doc.querySelector('[itemprop="image"]')?.getAttribute('content')
+  if (microdataImg) return microdataImg
+
+  const linkImg = doc.querySelector('link[rel="image_src"]')?.getAttribute('href')
+  if (linkImg) return linkImg
 
   return null
 }
